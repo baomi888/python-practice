@@ -17,9 +17,9 @@ OUT_DIR = "charts"
 
 
 def load_data(path):
-    """读取 CSV 文件，做简单类型校验。"""
+    """读取 CSV 文件。"""
     df = pd.read_csv(path)
-    # 排除非数值列（姓名），自动识别数值列
+    # 排除非数值列（球员、球队），自动识别数值列
     return df
 
 
@@ -39,32 +39,32 @@ def compute_stats(df):
 
 
 def plot_bar(stats, out_path):
-    """柱状图：各科平均成绩对比。"""
+    """柱状图：NBA球员核心数据均值对比。"""
     fig, ax = plt.subplots(figsize=(8, 5))
-    # 只统计语文/数学/英语三科，不包含总分
-    subject_stats = stats.loc[["语文", "数学", "英语"]]
-    ax.bar(subject_stats.index, subject_stats["mean"], color=["#5B9BD5", "#ED7D31", "#A5A5A5"])
-    ax.set_title("学生各科平均成绩对比")
-    ax.set_xlabel("科目")
-    ax.set_ylabel("平均分")
-    ax.set_ylim(0, 100)
+    # 只统计得分/篮板/助攻三项核心数据，不包含总效率
+    core_stats = stats.loc[["得分", "篮板", "助攻"]]
+    ax.bar(core_stats.index, core_stats["mean"], color=["#5B9BD5", "#ED7D31", "#A5A5A5"])
+    ax.set_title("NBA球员核心数据均值对比")
+    ax.set_xlabel("数据项")
+    ax.set_ylabel("数值")
+    ax.set_ylim(0, 45)
     # 柱顶标数值
-    for i, v in enumerate(subject_stats["mean"]):
-        ax.text(i, v + 1, f"{v}", ha="center", va="bottom")
+    for i, v in enumerate(core_stats["mean"]):
+        ax.text(i, v + 0.5, f"{v}", ha="center", va="bottom")
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
 
 
 def plot_line(df, out_path):
-    """折线图：按总分降序排列的学生成绩趋势。"""
+    """折线图：按总效率降序排列的NBA球员排名。"""
     fig, ax = plt.subplots(figsize=(8, 5))
-    # 按总分降序
-    sorted_df = df.sort_values("总分", ascending=False).reset_index(drop=True)
-    ax.plot(sorted_df["姓名"], sorted_df["总分"], marker="o", color="#4472C4", linewidth=2)
-    ax.set_title("学生总分排名趋势")
-    ax.set_xlabel("学生（按总分降序）")
-    ax.set_ylabel("总分")
+    # 按总效率降序
+    sorted_df = df.sort_values("总效率", ascending=False).reset_index(drop=True)
+    ax.plot(sorted_df["球员"], sorted_df["总效率"], marker="o", color="#4472C4", linewidth=2)
+    ax.set_title("NBA球员总效率排名")
+    ax.set_xlabel("球员（按总效率降序）")
+    ax.set_ylabel("总效率")
     ax.tick_params(axis="x", rotation=30)
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
