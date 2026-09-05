@@ -12,7 +12,7 @@ from client import DeepSeekClient
 def print_welcome(model_name, has_search_key):
     """打印欢迎语与命令说明。"""
     print("=" * 56)
-    print(f"  🤖 DeepSeek 控制台问答  |  模型：{model_name}")
+    print(f"   DeepSeek 控制台问答  |  模型：{model_name}")
     print("=" * 56)
     print("  命令：")
     print("    exit         - 退出程序")
@@ -95,7 +95,7 @@ def main():
     # 死循环接收用户输入
     while True:
         try:
-            user_input = input("👤 你：")
+            user_input = input("🐷 请输入问题：")
             handle_user_input(client, user_input)
         except KeyboardInterrupt:
             # Ctrl+C 优雅退出
@@ -103,7 +103,7 @@ def main():
             sys.exit(0)
         except EOFError:
             # Ctrl+D 或输入流结束
-            print("\n👋 再见！")
+            print("\n👋 再见呀！")
             sys.exit(0)
 
 
