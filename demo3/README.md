@@ -10,6 +10,7 @@
 - 🧹 `clear` 命令一键清空上下文
 - 🚪 `exit` 命令优雅退出
 - 🛡️ 分类异常提示：认证失败 / 网络断开 / 请求超时 / 返回格式异常
+- 🌐 **联网搜索**：`/web 关键词` 自动搜网页后由 DeepSeek 总结（可选，需 Serper API Key）
 
 ## 🛠️ 技术栈
 
@@ -54,6 +55,19 @@ DEEPSEEK_MODEL=deepseek-v4-flash
 DEEPSEEK_API_URL=https://api.deepseek.com/v1/chat/completions
 ```
 
+### 2.5 （可选）配置联网搜索
+
+联网搜索使用 [Serper.dev](https://serper.dev) 的免费 API（每月 2500 次）：
+
+1. 打开 https://serper.dev 用邮箱注册
+2. 进入 Dashboard → API Keys → 复制 Key
+3. 粘贴到 `.env` 的 `SERPER_API_KEY`：
+   ```
+   SERPER_API_KEY=your_serper_api_key_here
+   ```
+
+不配 Serper 也没关系，普通对话功能完全不受影响，只是 `/web` 命令不可用。
+
 ### 3. 运行程序
 
 ```bash
@@ -68,6 +82,7 @@ python main.py
 | 直接输入文字 | 发送提问给 DeepSeek |
 | `exit` | 退出程序 |
 | `clear` | 清空对话上下文，开启新会话 |
+| `/web 关键词` | 联网搜索后由 DeepSeek 总结回答 |
 
 ## 🔑 核心实现要点
 

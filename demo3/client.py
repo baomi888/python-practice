@@ -39,6 +39,9 @@ class DeepSeekClient:
                 "API_KEY 未配置。请复制 .env.example 为 .env 并填入你的 DEEPSEEK_API_KEY。"
             )
 
+        # 搜索 API（Serper）Key，可选配置。不配则联网命令不可用但不影响普通对话
+        self.search_api_key = os.getenv("SERPER_API_KEY", "").strip()
+
         # 多轮对话历史
         self.messages = []
 
@@ -140,6 +143,91 @@ class DeepSeekClient:
     def clear_history(self):
         """清空对话历史，开启全新上下文。"""
         self.messages.clear()
+
+    def web_search(self, query, num_results=5):
+        """调用 Serper API 联网搜索，返回摘要字符串。
+
+        Args:
+            query: 搜索关键词
+            num_results: 返回结果条数上限
+
+        Returns:
+            str: 搜索摘要（每条含标题 + 链接 + 片段）
+
+        Raises:
+            PermissionError: SERPER_API_KEY 未配置
+            ConnectionError: 搜索服务不可达
+            RuntimeError: 搜索失败或返回格式异常
+        """
+        if not self.search_api_key:
+            raise PermissionError(
+                "联网搜索需要 SERPER_API_KEY。请在 .env 中配置你的 Serper API Key。"
+            )
+
+        try:
+            response = requests.post(
+                "https://google.serper.dev/search",
+                headers={
+                    "X-API-KEY": self.search_api_key,
+                    "Content-Type": "application/json",
+                },
+                data=json.dumps({"q": query, "num": num_results}),
+                timeout=15,
+            )
+            response.raise_for_status()
+            data = json.loads(response.text)
+        except requests.exceptions.Timeout as e:
+            raise ConnectionError(f"搜索请求超时：{e}")
+        except requests.exceptions.ConnectionError as e:
+            raise ConnectionError(f"搜索服务连接失败：{e}")
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"搜索结果解析失败：{e}")
+        except requests.exceptions.RequestException as e:
+            raise RuntimeError(f"搜索请求异常：{e}")
+
+        # 拼装摘要
+        organic = data.get("organic", [])
+        if not organic:
+            # 没有正常搜索结果时，尝试用 knowledgeGraph 或 answer
+            kg = data.get("knowledgeGraph", {})
+            answer = data.get("answerBox", {})
+            fallback = ""
+            if kg:
+                fallback = f"简介：{kg.get('description', '')}\n来源：{kg.get('url', '')}"
+            elif answer:
+                fallback = (
+                    f"直接回答：{answer.get('answer', '')}\n"
+                    f"来源：{answer.get('link', '')}"
+                )
+            if fallback:
+                return fallback
+            return "（搜索未返回有效结果）"
+
+        summary_lines = []
+        for item in organic[:num_results]:
+            title = item.get("title", "")
+            link = item.get("link", "")
+            snippet = item.get("snippet", "")
+            summary_lines.append(f"- [{title}]({link})\n  {snippet}")
+        return "\n".join(summary_lines)
+
+    def chat_with_web(self, user_message, max_retries=2, retry_interval=1):
+        """先联网搜索，再把搜索结果拼进 prompt 交给 DeepSeek 总结回答。
+
+        搜索结果**不进入**多轮对话历史，避免上下文污染。
+        """
+        # 先搜
+        search_summary = self.web_search(user_message)
+
+        # 构造带搜索上下文的 prompt
+        augmented_prompt = (
+            f"[联网搜索结果]\n{search_summary}\n\n"
+            f"请基于以上搜索结果，回答用户的问题：{user_message}\n"
+            f"如果搜索结果不足，请说明。"
+        )
+
+        # 调用普通 chat（自动入历史）
+        return self.chat(augmented_prompt, max_retries, retry_interval)
 
     def __repr__(self):
         return f"<DeepSeekClient model={self.model!r} history_len={len(self.messages)}>"

@@ -2,20 +2,25 @@
 
 用法：python main.py
 支持多轮对话，输入 clear 清空上下文，输入 exit 退出。
+输入 /web 关键词 可触发联网搜索后再让 DeepSeek 总结。
 """
 import sys
 
 from client import DeepSeekClient
 
 
-def print_welcome(model_name):
+def print_welcome(model_name, has_search_key):
     """打印欢迎语与命令说明。"""
     print("=" * 56)
     print(f"  🤖 DeepSeek 控制台问答  |  模型：{model_name}")
     print("=" * 56)
     print("  命令：")
-    print("    exit   - 退出程序")
-    print("    clear  - 清空对话上下文")
+    print("    exit         - 退出程序")
+    print("    clear        - 清空对话上下文")
+    if has_search_key:
+        print("    /web 关键词  - 联网搜索后由 DeepSeek 总结回答 ✅")
+    else:
+        print("    /web 关键词  - 联网搜索（需配置 SERPER_API_KEY）")
     print("=" * 56)
     print()
 
@@ -32,6 +37,28 @@ def handle_user_input(client, user_input):
     if user_input.lower() == "clear":
         client.clear_history()
         print("🧹 对话上下文已清空。")
+        return
+
+    # /web 联网搜索命令
+    if user_input.startswith("/web"):
+        query = user_input[4:].strip()
+        if not query:
+            print("💡 用法：/web 茂名旅游推荐")
+            return
+        print(f"\n🔍 联网搜索中…「{query}」", end="", flush=True)
+        try:
+            answer = client.chat_with_web(query)
+            print("\r🤖 DeepSeek（联网总结）：")
+            print(answer)
+        except PermissionError as e:
+            print(f"\r❌ {e}")
+        except ConnectionError as e:
+            print(f"\r❌ 网络问题：{e}")
+        except TimeoutError:
+            print("\r❌ 请求超时，请稍后重试。")
+        except RuntimeError as e:
+            print(f"\r❌ {e}")
+        print()
         return
 
     # 正常提问流程
@@ -63,7 +90,7 @@ def main():
         print("   复制 .env.example 为 .env，填入你的 DeepSeek API Key 后重试。")
         sys.exit(1)
 
-    print_welcome(client.model)
+    print_welcome(client.model, bool(client.search_api_key))
 
     # 死循环接收用户输入
     while True:
