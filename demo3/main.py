@@ -15,10 +15,10 @@ def print_welcome(model_name, has_search_key):
     print(f"   DeepSeek 控制台问答  |  模型：{model_name}")
     print("=" * 56)
     print("  命令：")
-    print("    exit         - 退出程序")
-    print("    clear        - 清空对话上下文")
+    print("    exit         - 退出程序 (´•ω•)ﾉ")
+    print("    clear        - 清空对话上下文 (๑•.•๑)")
     if has_search_key:
-        print("    /web 关键词  - 联网搜索后由 DeepSeek 总结回答 ✅")
+        print("    /web 关键词  - 联网搜索后由 DeepSeek 总结回答 (๑•.•๑)")
     else:
         print("    /web 关键词  - 联网搜索（需配置 SERPER_API_KEY）")
     print("=" * 56)
@@ -32,7 +32,7 @@ def handle_user_input(client, user_input):
     if not user_input:
         return
     if user_input.lower() == "exit":
-        print("👋 再见！")
+        print("👋 再见呀！")
         sys.exit(0)
     if user_input.lower() == "clear":
         client.clear_history()
@@ -43,12 +43,12 @@ def handle_user_input(client, user_input):
     if user_input.startswith("/web"):
         query = user_input[4:].strip()
         if not query:
-            print("💡 用法：/web 茂名旅游推荐")
+            print("💡 用法：/web")
             return
         print(f"\n🔍 联网搜索中…「{query}」", end="", flush=True)
         try:
             answer = client.chat_with_web(query)
-            print("\r🤖 DeepSeek（联网总结）：")
+            print("\r🐟 DeepSeek（联网总结）：")
             print(answer)
         except PermissionError as e:
             print(f"\r❌ {e}")
@@ -95,7 +95,7 @@ def main():
     # 死循环接收用户输入
     while True:
         try:
-            user_input = input("🐷 请输入问题：")
+            user_input = input("('-ω-') 请输入问题：")
             handle_user_input(client, user_input)
         except KeyboardInterrupt:
             # Ctrl+C 优雅退出
