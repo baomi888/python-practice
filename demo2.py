@@ -57,15 +57,19 @@ def plot_bar(stats, out_path):
 
 
 def plot_line(df, out_path):
-    """折线图：按总效率降序排列的NBA球员排名。"""
-    fig, ax = plt.subplots(figsize=(8, 5))
-    # 按总效率降序
-    sorted_df = df.sort_values("总效率", ascending=False).reset_index(drop=True)
-    ax.plot(sorted_df["球员"], sorted_df["总效率"], marker="o", color="#4472C4", linewidth=2)
-    ax.set_title("NBA球员总效率排名")
-    ax.set_xlabel("球员（按总效率降序）")
-    ax.set_ylabel("总效率")
-    ax.tick_params(axis="x", rotation=30)
+    """水平条形图：按总效率降序排列的NBA球员排名。"""
+    fig, ax = plt.subplots(figsize=(10, 14))
+    # 按总效率降序，用 iloc[::-1] 让第一名在顶部
+    sorted_df = df.sort_values("总效率", ascending=True).reset_index(drop=True)
+    # 用渐变色条，效率越高颜色越深
+    colors = plt.cm.Blues(sorted_df["总效率"] / sorted_df["总效率"].max())
+    ax.barh(sorted_df["球员"], sorted_df["总效率"], color=colors)
+    ax.set_title("NBA球员总效率排名（Top 50）", fontsize=14)
+    ax.set_xlabel("总效率")
+    ax.set_ylabel("球员")
+    # 在每个条末端标数值
+    for i, v in enumerate(sorted_df["总效率"]):
+        ax.text(v + 0.3, i, f"{v:.1f}", va="center", fontsize=8)
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
