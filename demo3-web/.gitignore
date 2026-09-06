@@ -21,6 +21,9 @@ env/
 *.swp
 *.swo
 
+# 会话持久化数据（包含对话历史）
+sessions/
+
 # 日志 & 临时文件
 *.log
 *.tmp
