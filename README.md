@@ -6,6 +6,7 @@ Python基础练习Demo
 1. Demo1：文件数据处理脚本，文件读写、文本清洗、关键词统计、异常捕获
 2. Demo2：Pandas数据分析与matplotlib可视化
 3. Demo3：大模型API控制台问答程序
+4. Demo4：大模型API控制台问答网页，包含联网模式和普通模式
 
 ## 环境依赖
 ```bash
