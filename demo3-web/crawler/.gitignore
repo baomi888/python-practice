@@ -1,0 +1,16 @@
+# 会话 Cookie（登录态）—— 属于个人敏感数据，绝不提交
+storage/
+# 下载产物
+downloads/
+# 运行日志 / 失败截图
+logs/
+# Python
+__pycache__/
+*.py[cod]
+# 本地验证用的虚拟环境 / 临时目录 / Playwright 浏览器
+.venv/
+.tmp/
+.pw-browsers/
+# 本地私有配置（含真实账号 URL / 目标站）
+config.local.json
+config.json

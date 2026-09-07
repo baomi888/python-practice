@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Playwright 爬虫·本地演示站</title>
+<style>
+  body { font-family: "Microsoft YaHei", system-ui, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; }
+  .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px 20px; margin: 12px 0; }
+  .vip { border-color: #f0c674; background: #fffbe8; }
+  .deny { color: #c0392b; font-weight: 600; }
+  button, a.btn { display: inline-block; margin: 6px 6px 6px 0; padding: 8px 16px;
+                  border: 1px solid #999; border-radius: 6px; background: #f6f8fa; cursor: pointer; text-decoration: none; color: inherit; }
+  button.primary { background: #2f81f7; border-color: #2f81f7; color: #fff; }
+  code { background: #f0f0f0; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>🎓 本地演示站（无需联网，供爬虫全流程练习）</h1>
+<p>演示内容：<b>① 登录门禁</b>（未登录只见门禁页，模拟真实站点）→ <b>② JS 延迟渲染</b>（登录后 1.5s 才显示下载区）→ <b>③ 三种下载按钮</b> + <b>④ 无权限拒绝演示</b>。</p>
+
+<!-- ① 登录门禁：未带 Cookie 时只显示这里（模拟"普通页面也需要登录态"的真实站点结构） -->
+<div id="login-gate" class="card">
+  <p><b>🔒 演示登录门禁</b>：请点击下方按钮"登录"（等价于真实站点里输入账号密码/扫码后服务端种下的 Cookie）。</p>
+  <button id="btn-login" class="primary" onclick="doLogin()">模拟登录（设置演示 Cookie）</button>
+  <p style="color:#888;font-size:13px">点击后脚本设置 Cookie <code>demo_login=1</code> 并刷新页面。爬虫会保存该登录态 Cookie 供下次复用，模拟"登录一次、长期复用"。</p>
+</div>
+
+<!-- ② 登录后内容区：脚本延迟 1.5s 渲染，模拟 SPA/JS 动态加载 -->
+<div id="content" class="card" hidden>
+  <p><b>✅ 已登录（Cookie: demo_login=1）· 当前身份：普通用户</b></p>
+  <div>
+    <a  id="dl-csv" class="btn" href="files/data.csv" download>⬇ 下载 data.csv（普通链接下载按钮）</a>
+    <button id="dl-js" class="btn" onclick="jsDownload()">⬇ 下载 js-demo.txt（JS 触发下载）</button>
+  </div>
+  <div class="card vip" style="margin-top:18px">
+    <p><b>👑 会员专享区（仅展示，当前普通账号无权下载）</b></p>
+    <button id="dl-vip" class="btn" onclick="vipOnly()">下载 vip-only.zip（演示按钮）</button>
+    <p id="deny-notice" class="deny" hidden></p>
+  </div>
+  <p style="color:#888;font-size:13px">
+    说明：点击"演示按钮"时本站（模拟服务端）返回"无权限"提示而<b>不产生任何下载</b>；
+    爬虫若检测到这类权限提示，会<b>立即停止并提示用户</b>，绝不尝试伪造会员身份绕过（合规红线）。
+  </p>
+</div>
+
+<script>
+  // 模拟登录：仅用于本地演示。真实站点由用户在有头窗口中用本人账号完成登录。
+  function doLogin() {
+    document.cookie = "demo_login=1; path=/; max-age=86400";
+    location.reload();
+  }
+
+  // JS 触发的下载（Blob + 临时 <a download>），验证"非导航型下载"也能被监听捕获
+  function jsDownload() {
+    var blob = new Blob(["js-demo 文件内容：Playwright 下载事件捕获测试\n"], { type: "text/plain" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "js-demo.txt";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 3000);
+  }
+
+  // 模拟"会员权限校验失败"：返回提示、不触发下载（绝不提供绕过路径）
+  function vipOnly() {
+    document.getElementById("deny-notice").hidden = false;
+    document.getElementById("deny-notice").textContent =
+      "错误：当前账号无下载权限，需要会员等级（演示：服务端拒绝逻辑）。请勿尝试越权破解。";
+  }
+
+  // ② 登录态判定 + JS 延迟渲染（模拟动态加载，考验爬虫的等待逻辑）
+  (function () {
+    if (document.cookie.indexOf("demo_login=1") >= 0) {
+      setTimeout(function () {
+        document.getElementById("content").hidden = false;
+        console.log("[local-demo] content rendered by JS after 1.5s");
+      }, 1500);
+    }
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,2 @@
+# Playwright 同步 API（浏览器自动化核心）
+playwright>=1.44

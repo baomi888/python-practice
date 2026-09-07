@@ -1,0 +1,62 @@
+{
+  "_说明": "配置模板：复制为 config.mysite.json 后按目标站点修改。所有路径相对本 crawler/ 目录。字段含义见 README.md『配置项说明』。",
+
+  "site": {
+    "name": "你的目标站点名称",
+    "home_url": "https://example.com/",
+    "target_url": "https://example.com/files/page-with-download",
+    "login": {
+      "enabled": true,
+      "login_url": "https://example.com/login",
+      "logged_in_check": {
+        "type": "marker_present",
+        "selector": "填写『已登录才出现』的元素选择器（如右上角头像 .user-avatar）",
+        "value": ""
+      },
+      "manual_tip": "请在打开的窗口中用本人账号完成登录（扫码/短信验证码/滑块请人工完成），成功后脚本自动继续。"
+    }
+  },
+
+  "browser": {
+    "headless": false,
+    "channel": null,
+    "locale": "zh-CN",
+    "timezone_id": "Asia/Shanghai",
+    "viewport": { "width": 1366, "height": 900 },
+    "user_agent": null,
+    "slow_mo_ms": 0
+  },
+
+  "timeouts_ms": {
+    "page_load": 45000,
+    "wait": 15000,
+    "login_wait": 300000,
+    "download": 120000,
+    "verify_wait": 300000
+  },
+
+  "delay": { "enabled": true, "min_sec": 1.0, "max_sec": 3.0 },
+
+  "page": {
+    "content_wait": "填写『目标文件/下载区渲染完成后才出现』的稳定选择器；JS 页面必填，静态页可留空",
+    "popup_close_selectors": ["填写弹窗/公告/浮层的关闭按钮 CSS（可多个，逐个尝试点击）"],
+    "verification_selectors": ["填写人机验证出现时的特征选择器（如有）"],
+    "deny_texts": ["无权限", "需要会员", "权限不足", "开通会员", "升级会员", "购买VIP"],
+    "expand_steps": [
+      { "action": "click_text", "value": "更多下载方式", "tip": "示例：展开动态 UI（可选步骤，可删）" }
+    ]
+  },
+
+  "download": {
+    "keywords": ["下载", "Download", "download"],
+    "href_ext_hits": [".zip", ".pdf", ".csv", ".txt", ".doc", ".docx", ".xlsx", ".png", ".jpg"],
+    "exclude_keywords": ["登录", "注册", "退出", "注销", "sign in", "sign out", "logout"],
+    "auto_save_all": false
+  },
+
+  "paths": {
+    "storage": "storage/mysite_state.json",
+    "downloads": "downloads",
+    "logs": "logs"
+  }
+}
