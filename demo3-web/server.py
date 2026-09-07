@@ -42,29 +42,44 @@ def fetch_url_text(url: str, timeout: int = 8) -> str | None:
     """用 Playwright 真实浏览器打开 URL，提取页面正文文本。
 
     - playwright 未安装 → 返回 None（不影响主流程）
+    - 启动顺序：优先本机 Edge（channel="msedge"）→ 退回 Chromium → 放弃
     - 抓取失败/超时 → 返回 None
     - 成功 → 返回清洗后的正文（去 script/style/空行，最大 2500 字符）
     """
     if not _PLAYWRIGHT_AVAILABLE:
         return None
-    try:
-        with _sync_pw() as pw:
-            browser = pw.chromium.launch(headless=True)
-            page = browser.new_page(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36"
-            )
-            page.goto(url, timeout=timeout * 1000, wait_until="domcontentloaded")
-            page.wait_for_timeout(1500)  # 等 JS 渲染
-            text = page.inner_text("body")
-            browser.close()
-        # 清洗：去空行 + 连续空白
-        lines = [l.strip() for l in text.splitlines() if l.strip()]
-        cleaned = "\n".join(lines)
-        # 去 script/style 痕迹（有时 inner_text 会残留）
-        cleaned = re.sub(r'(?i)(script|style|noscript)[^>]*>', '', cleaned)
-        return cleaned[:2500]  # 控制 token
-    except Exception:
-        return None
+
+    # 启动顺序：Edge → Chromium（Playwright 自带）
+    launch_candidates = [
+        {"headless": True, "channel": "msedge"},    # 优先本机 Edge（省下载）
+        {"headless": True},                          # 退回 Chromium
+    ]
+
+    last_error = None
+    for launch_kw in launch_candidates:
+        try:
+            with _sync_pw() as pw:
+                browser = pw.chromium.launch(**launch_kw)
+                page = browser.new_page(
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36"
+                )
+                # wait_until='load' 更稳，国内网络波动时 domcontentloaded 可能迟迟不到
+                page.goto(url, timeout=max(timeout, 15) * 1000, wait_until="load")
+                page.wait_for_timeout(2000)  # 等 JS 渲染（国内站点 2s 更稳）
+                text = page.inner_text("body")
+                browser.close()
+            # 清洗：去空行 + 连续空白
+            lines = [l.strip() for l in text.splitlines() if l.strip()]
+            cleaned = "\n".join(lines)
+            # 去 script/style 痕迹（有时 inner_text 会残留）
+            cleaned = re.sub(r'(?i)(script|style|noscript)[^>]*>', '', cleaned)
+            return cleaned[:2500]  # 控制 token
+        except Exception as e:
+            last_error = e
+            continue  # 尝试下一个浏览器
+
+    print(f"  ⚠ Playwright 抓正文失败: {last_error}")
+    return None
 
 
 def do_web_search(query: str, num_results: int = 5) -> list:
@@ -109,14 +124,25 @@ def do_web_search(query: str, num_results: int = 5) -> list:
 
     # --- 阶段 2：Playwright 正文抓取（可选增强） ---
     if _PLAYWRIGHT_AVAILABLE:
+        # 国内网络黑名单：直连慢 / 需要翻墙的域名，跳过省时间
+        BLOCKED_HOSTS = (
+            "wikipedia.org", "wikimedia.org", "nobelprize.org",
+            "nature.com", "science.org", "newsweek.com",
+            "nytimes.com", "bbc.com", "bbc.co.uk",
+            "theguardian.com", "reuters.com",
+        )
         print(f"🔍 Playwright 正文抓取（共 {len(sources)} 条）...")
         t0 = time.time()
         for s in sources:
-            # 总时间保护：30 秒到就停
-            if time.time() - t0 > 30:
+            # 总时间保护：45 秒到就停
+            if time.time() - t0 > 45:
                 print("  ⏱ 总时间到，停止后续抓取")
                 break
-            content = fetch_url_text(s["link"], timeout=6)
+            link = s["link"]
+            if any(bh in link for bh in BLOCKED_HOSTS):
+                print(f"  ⏭ [{s['source_id']}] {s['title'][:40]} → 黑名单域名跳过")
+                continue
+            content = fetch_url_text(link, timeout=12)  # 单 URL 超时 12s
             if content and len(content) > 50:  # 太短 = 没抓到有效内容
                 s["content"] = content
                 s["snippet"] = content[:300] + "..."
