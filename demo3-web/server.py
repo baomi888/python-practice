@@ -29,16 +29,60 @@ SESSIONS_DIR.mkdir(exist_ok=True)
 
 SERPER_URL = "https://google.serper.dev/search"
 
+# Playwright 可选依赖检测（爬虫模块集成）
+# playwright 未安装 → 降级为纯 Serper snippet，零破坏
+try:
+    from playwright.sync_api import sync_playwright as _sync_pw  # noqa: F401
+    _PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    _PLAYWRIGHT_AVAILABLE = False
+
+
+def fetch_url_text(url: str, timeout: int = 8) -> str | None:
+    """用 Playwright 真实浏览器打开 URL，提取页面正文文本。
+
+    - playwright 未安装 → 返回 None（不影响主流程）
+    - 抓取失败/超时 → 返回 None
+    - 成功 → 返回清洗后的正文（去 script/style/空行，最大 2500 字符）
+    """
+    if not _PLAYWRIGHT_AVAILABLE:
+        return None
+    try:
+        with _sync_pw() as pw:
+            browser = pw.chromium.launch(headless=True)
+            page = browser.new_page(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36"
+            )
+            page.goto(url, timeout=timeout * 1000, wait_until="domcontentloaded")
+            page.wait_for_timeout(1500)  # 等 JS 渲染
+            text = page.inner_text("body")
+            browser.close()
+        # 清洗：去空行 + 连续空白
+        lines = [l.strip() for l in text.splitlines() if l.strip()]
+        cleaned = "\n".join(lines)
+        # 去 script/style 痕迹（有时 inner_text 会残留）
+        cleaned = re.sub(r'(?i)(script|style|noscript)[^>]*>', '', cleaned)
+        return cleaned[:2500]  # 控制 token
+    except Exception:
+        return None
+
 
 def do_web_search(query: str, num_results: int = 5) -> list:
     """执行联网搜索，返回结构化 sources 数组。
 
+    两阶段：
+    1. Serper API → 5 条搜索结果（title / snippet / link）
+    2. Playwright（可选）→ 逐条打开链接抓网页正文 → sources.content
+
+    playwright 未安装时自动降级为纯 Serper snippet。
+
     Returns:
-        list[dict]: 每个元素包含 source_id、title、snippet、link
-                    搜索失败或无结果时返回空列表。
+        list[dict]: { source_id, title, snippet, link, content? }
     """
     if not SERPER_API_KEY:
         raise RuntimeError("未配置 SERPER_API_KEY")
+
+    # --- 阶段 1：Serper 搜索 ---
     try:
         resp = requests.post(
             SERPER_URL,
@@ -52,7 +96,8 @@ def do_web_search(query: str, num_results: int = 5) -> list:
         raise RuntimeError(f"搜索失败：{e}")
     if not results:
         return []
-    return [
+
+    sources = [
         {
             "source_id": i,
             "title": r.get("title", ""),
@@ -62,19 +107,43 @@ def do_web_search(query: str, num_results: int = 5) -> list:
         for i, r in enumerate(results, 1)
     ]
 
+    # --- 阶段 2：Playwright 正文抓取（可选增强） ---
+    if _PLAYWRIGHT_AVAILABLE:
+        print(f"🔍 Playwright 正文抓取（共 {len(sources)} 条）...")
+        t0 = time.time()
+        for s in sources:
+            # 总时间保护：30 秒到就停
+            if time.time() - t0 > 30:
+                print("  ⏱ 总时间到，停止后续抓取")
+                break
+            content = fetch_url_text(s["link"], timeout=6)
+            if content and len(content) > 50:  # 太短 = 没抓到有效内容
+                s["content"] = content
+                s["snippet"] = content[:300] + "..."
+                print(f"  ✅ [{s['source_id']}] {s['title'][:40]} → {len(content)} chars")
+            else:
+                print(f"  ⏭ [{s['source_id']}] {s['title'][:40]} → 仅保留 Serper snippet")
+        print(f"  总耗时 {time.time() - t0:.1f}s")
+
+    return sources
+
 
 def format_sources_for_llm(sources: list) -> str:
     """将 sources 数组格式化为 LLM 可见的搜索素材块。
 
-    重要：绝对不能出现原始 URL，LLM 只看 source_id + title + snippet。
-    这样可以引导 LLM 只输出 source_id 角标，而不会把 URL 输出到回答里。
+    Playwright 增强：有 content 字段时，优先展示正文（截取前 1500 字符）；
+    否则退回到 Serper snippet。这样 LLM 能拿到真正的网页内容，回答质量大幅提升。
+
+    重要：绝对不能出现原始 URL。LLM 只看 source_id + title + 素材文本。
     """
     if not sources:
         return ""
     lines = ["以下是联网检索到的参考素材（source_id 即为引用编号）："]
     for s in sources:
         lines.append(f"[source_id={s['source_id']}] {s['title']}")
-        lines.append(f"  {s['snippet']}")
+        content = s.get("content") or s.get("snippet", "")
+        # content 可能很长，LLM prompt 里只展示前 1500 字符
+        lines.append(f"  {content[:1500]}")
     return "\n".join(lines)
 
 
@@ -441,6 +510,7 @@ def api_health():
         "status": "ok",
         "model": DeepSeekClient().model,
         "web_search": bool(SERPER_API_KEY),
+        "playwright": _PLAYWRIGHT_AVAILABLE,
         "sessions_count": len(list_sessions()),
     })
 

@@ -3,3 +3,5 @@ requests
 flask
 flask-cors
 PyPDF2
+# Playwright 爬虫正文抓取（可选增强层，未安装时自动降级为 Serper snippet）
+playwright
