@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Baomi Agent</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Prism.js 代码高亮 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-java.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-go.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-css.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markup.min.js"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -51,8 +62,8 @@
     .chat-scroll::-webkit-scrollbar-thumb{background:rgba(236,72,153,0.25);border-radius:3px}
 
     /* ====== 气泡 ====== */
-    .msg-user{background:linear-gradient(135deg,#ec4899,#f472b6);color:#fff;border-radius:18px 18px 4px 18px;padding:12px 16px;max-width:72%;font-size:14px;line-height:1.6;word-break:break-word;box-shadow:0 2px 8px rgba(236,72,153,0.25)}
-    .msg-ai{background:#ffffff;border:1px solid #eef0f5;border-radius:18px 18px 18px 4px;padding:14px 18px;max-width:76%;font-size:14px;line-height:1.7;box-shadow:0 2px 8px rgba(0,0,0,0.04);position:relative}
+    .msg-user{background:linear-gradient(135deg,#ec4899,#f472b6);color:#fff;border-radius:18px 18px 4px 18px;padding:12px 16px;max-width:85%;font-size:14px;line-height:1.6;word-break:break-word;box-shadow:0 2px 8px rgba(236,72,153,0.25)}
+    .msg-ai{background:#ffffff;border:1px solid #eef0f5;border-radius:18px 18px 18px 4px;padding:14px 18px;max-width:85%;font-size:14px;line-height:1.7;box-shadow:0 2px 8px rgba(0,0,0,0.04);position:relative}
     html.dark .msg-ai{background:#1a1b28;border-color:#282937}
     /* AI 消息工具栏 */
     .msg-ai__tools{display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px dashed #eef0f5;opacity:0;transition:opacity .2s}
@@ -73,11 +84,18 @@
     #pigAvatar{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#fdf2f8,#fce7f3)}
     html.dark #pigAvatar{background:linear-gradient(135deg,#4a2d3f,#2d1f2e)}
 
-    /* ====== 联网搜索 toggle ====== */
-    .web-search-toggle{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:13px;cursor:pointer;user-select:none;transition:all .2s;border:1px solid #e5e7eb;background:#ffffff;color:#6b7280}
-    .web-search-toggle:hover{border-color:#fbcfe8;color:#db2777}
-    .web-search-toggle.active{background:linear-gradient(135deg,#ec4899,#f472b6);color:#fff;border-color:transparent;box-shadow:0 2px 8px rgba(236,72,153,0.3)}
-    html.dark .web-search-toggle{background:#1a1b28;border-color:#282937;color:#9ca3af}
+    /* ====== 联网搜索 Toggle 开关 ====== */
+    .web-search-toggle{display:inline-flex;align-items:center;gap:8px;padding:5px 12px 5px 5px;border-radius:20px;font-size:12px;cursor:pointer;user-select:none;transition:all .2s;border:1px solid #e5e7eb;background:#ffffff;color:#9ca3af}
+    .web-search-toggle:hover{border-color:#fbcfe8}
+    html.dark .web-search-toggle{background:#1a1b28;border-color:#2d2e3e;color:#9ca3af}
+    .web-search-toggle.active{background:rgba(236,72,153,0.08);border-color:#fbcfe8;color:#be185d}
+    html.dark .web-search-toggle.active{background:rgba(236,72,153,0.15);border-color:#f9a8d4;color:#f9a8d4}
+    .ws-switch{width:26px;height:14px;border-radius:7px;background:#e5e7eb;position:relative;transition:background .2s;flex-shrink:0}
+    html.dark .ws-switch{background:#2d2e3e}
+    .ws-switch::after{content:'';position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,0.2)}
+    .web-search-toggle.active .ws-switch{background:#ec4899}
+    .web-search-toggle.active .ws-switch::after{left:14px}
+    .ws-label{display:inline-flex;align-items:center;gap:4px;font-weight:500}
 
     /* ====== 按钮 ====== */
     .btn-newchat{display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border-radius:12px;background:linear-gradient(135deg,#ec4899,#f472b6);color:#fff;font-size:14px;font-weight:500;cursor:pointer;border:none;box-shadow:0 2px 8px rgba(236,72,153,0.3);transition:all .2s}
@@ -87,10 +105,13 @@
     html.dark .btn-icon:hover{background:#252633;color:#e2e8f0}
 
     /* ====== 输入 ====== */
-    .input-wrap{position:relative;border-radius:18px;border:1.5px solid #e5e7eb;background:#fff;transition:all .2s}
+    .input-wrap{position:relative;border-radius:18px;border:1.5px solid #e5e7eb;background:#fff;transition:all .2s;display:flex;flex-direction:column}
     .input-wrap:focus-within{border-color:#ec4899;box-shadow:0 0 0 4px rgba(236,72,153,0.12)}
     html.dark .input-wrap{background:#1a1b28;border-color:#282937}
     html.dark .input-wrap:focus-within{border-color:#ec4899;box-shadow:0 0 0 4px rgba(236,72,153,0.18)}
+    /* 输入行：附件按钮 + textarea + 发送按钮 */
+    .input-row{display:flex;align-items:flex-start;gap:4px;padding:4px 6px}
+    .input-row textarea{flex:1}
     .send-btn{position:absolute;right:10px;bottom:10px;width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#ec4899,#f472b6);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
     .send-btn:hover{transform:scale(1.05)}
     .send-btn.stop{background:#ef4444}
@@ -124,12 +145,107 @@
     .md pre{margin:12px 0;padding:14px 16px;border-radius:10px;overflow-x:auto;background:#f6f8fa;font-size:13px;line-height:1.55}
     html.dark .md pre{background:#161b22}
     .md pre code{background:none;padding:0;color:inherit}
+
+    /* ====== 代码块组件 ====== */
+    .md .code-block{margin:12px 0;border-radius:10px;overflow:hidden;background:#f6f8fa;border:1px solid #eef0f5}
+    html.dark .md .code-block{background:#161b22;border-color:#282d3a}
+    .md .code-block__header{display:flex;align-items:center;justify-content:space-between;padding:6px 12px;background:rgba(0,0,0,0.03);border-bottom:1px solid #eef0f5;font-size:11px;color:#8b949e}
+    html.dark .md .code-block__header{background:rgba(255,255,255,0.04);border-bottom-color:#282d3a;color:#8b949e}
+    .md .code-block__lang{font-weight:500;font-family:'JetBrains Mono',ui-monospace,monospace}
+    .md .code-block__copy{display:flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;background:transparent;border:1px solid rgba(0,0,0,0.08);cursor:pointer;color:#8b949e;font-size:11px;transition:all .18s;font-family:inherit}
+    .md .code-block__copy:hover{background:rgba(236,72,153,0.1);color:#db2777;border-color:rgba(236,72,153,0.3)}
+    html.dark .md .code-block__copy{border-color:rgba(255,255,255,0.1)}
+    html.dark .md .code-block__copy:hover{background:rgba(236,72,153,0.15);color:#f9a8d4;border-color:rgba(236,72,153,0.4)}
+    .md .code-block__copy svg{width:12px;height:12px}
+    .md .code-block pre{margin:0;padding:14px 16px;background:transparent;border-radius:0;overflow-x:auto}
+    .md .code-block pre code{background:none;padding:0;font-size:13px;line-height:1.55}
+
+    /* ====== 附件栏 ====== */
+    .attach-bar{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-top:1px solid #eef0f5;background:rgba(250,251,253,0.7);border-radius:0 0 18px 18px;flex-wrap:wrap}
+    html.dark .attach-bar{background:rgba(22,27,34,0.5);border-top-color:#282d3a}
+    .attach-btn{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;background:transparent;color:#9ca3af;transition:all .18s}
+    .attach-btn:hover{background:rgba(236,72,153,0.1);color:#db2777}
+    html.dark .attach-btn:hover{background:rgba(236,72,153,0.15);color:#f9a8d4}
+    .attach-btn svg{width:16px;height:16px}
+    .attach-list{display:flex;flex-wrap:wrap;gap:10px;flex:1;min-width:0}
+
+    /* 图片缩略图卡片（微信风格） */
+    .attach-img{position:relative;width:68px;height:68px;border-radius:12px;overflow:hidden;background:#f3f4f6;border:1.5px solid transparent;transition:all .2s;cursor:pointer}
+    html.dark .attach-img{background:#252633}
+    .attach-img:hover{border-color:#ec4899;transform:scale(1.03);box-shadow:0 4px 12px rgba(236,72,153,0.2)}
+    .attach-img img{width:100%;height:100%;object-fit:cover;display:block}
+    .attach-img__remove{position:absolute;top:-4px;right:-4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,0.55);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1;transition:all .15s;backdrop-filter:blur(4px)}
+    .attach-img__remove:hover{background:#ef4444;transform:scale(1.1)}
+
+    /* 文件卡片（豆包风格） */
+    .attach-file{position:relative;display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;background:rgba(250,251,253,0.9);border:1px solid #e5e7eb;min-width:180px;max-width:260px;transition:all .18s}
+    html.dark .attach-file{background:rgba(26,27,40,0.9);border-color:#2d2e3e}
+    .attach-file:hover{border-color:#ec4899;background:rgba(236,72,153,0.04)}
+    html.dark .attach-file:hover{background:rgba(236,72,153,0.08)}
+    .attach-file__icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+    .attach-file__icon--txt{background:rgba(59,130,246,0.12);color:#3b82f6}
+    .attach-file__icon--md{background:rgba(99,102,241,0.12);color:#6366f1}
+    .attach-file__icon--pdf{background:rgba(239,68,68,0.12);color:#ef4444}
+    .attach-file__body{flex:1;min-width:0}
+    .attach-file__name{font-size:13px;font-weight:500;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3}
+    html.dark .attach-file__name{color:#d1d5db}
+    .attach-file__meta{font-size:11px;color:#9ca3af;margin-top:2px}
+    .attach-file__remove{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.55);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;line-height:1;transition:all .15s;opacity:0}
+    .attach-file:hover .attach-file__remove{opacity:1}
+    .attach-file__remove:hover{background:#ef4444}
+
+    /* 用户气泡里的附件渲染 —— 豆包风格：图片/文件独立一行，不包在粉色气泡里 */
+    .user-bubble-media{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-bottom:4px}
+    .user-bubble-img{max-width:200px;max-height:200px;border-radius:14px;overflow:hidden;cursor:zoom-in;display:inline-block;box-shadow:0 2px 12px rgba(0,0,0,0.08);background:#fff;line-height:0}
+    html.dark .user-bubble-img{background:#1a1b28;box-shadow:0 2px 12px rgba(0,0,0,0.3)}
+    .user-bubble-img img{max-width:100%;max-height:200px;width:auto;height:auto;display:block;margin:auto}
+    /* 文档附件也独立一行 */
+    .user-bubble-file-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-bottom:4px}
+    .user-bubble-file{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:#fafbfd;border:1px solid #e5e7eb;color:#374151;min-width:180px;max-width:260px}
+    html.dark .user-bubble-file{background:#252633;border-color:#363748;color:#d1d5db}
+    .user-bubble-file__icon{width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+    .user-bubble-file__name{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .user-bubble-file__meta{font-size:11px;color:#9ca3af;margin-top:2px}
+
+    .attach-empty{font-size:12px;color:#9ca3af}
+    .md pre code{background:none;padding:0;color:inherit}
     .md strong{font-weight:600}
     .md a{color:#ec4899;text-decoration:underline}
     .md hr{border:none;border-top:1px solid #e5e7eb;margin:16px 0}
     html.dark .md hr{border-top-color:#282937}
 
-    @media(max-width:768px){.sidebar{display:none}.msg-user,.msg-ai{max-width:88%}}
+    /* ====== 引用来源卡片 ====== */
+    .ref-section{margin-top:12px;padding-top:10px;border-top:1px dashed #eef0f5}
+    html.dark .ref-section{border-top-color:#2a2b38}
+    /* 折叠组件 */
+    .ref-collapse{margin-top:12px;border-top:1px dashed #eef0f5;padding-top:8px}
+    html.dark .ref-collapse{border-top-color:#2a2b38}
+    .ref-collapse summary{cursor:pointer;list-style:none;font-size:12px;color:#9ca3af;display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:6px;user-select:none;transition:all .18s}
+    .ref-collapse summary::-webkit-details-marker{display:none}
+    .ref-collapse summary:hover{background:#fafbfd;color:#be185d}
+    html.dark .ref-collapse summary:hover{background:rgba(236,72,153,0.08);color:#f9a8d4}
+    .ref-collapse summary .ref-chevron{transition:transform .2s;font-size:10px}
+    .ref-collapse[open] summary .ref-chevron{transform:rotate(90deg)}
+    .ref-collapse summary .ref-count{background:rgba(236,72,153,0.12);color:#be185d;font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px}
+    html.dark .ref-collapse summary .ref-count{background:rgba(236,72,153,0.2);color:#f9a8d4}
+    .ref-list{display:flex;flex-direction:column;gap:4px;margin-top:8px}
+    .ref-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:#fafbfd;border:1px solid #f0f2f7;font-size:12px;cursor:pointer;text-decoration:none;color:#4b5563;transition:all .18s;scroll-margin-top:20px}
+    html.dark .ref-item{background:#1a1b28;border-color:#282937;color:#d1d5db}
+    .ref-item:hover{background:#fdf2f8;border-color:#fbcfe8;color:#be185d;transform:translateY(-1px)}
+    html.dark .ref-item:hover{background:#251520;border-color:#fbcfe8;color:#f9a8d4}
+    .ref-item.flash{animation:refFlash .8s ease-out}
+    @keyframes refFlash{0%{background:#fdf2f8;border-color:#ec4899}100%{background:inherit;border-color:inherit}}
+    .ref-badge{flex-shrink:0;width:20px;height:20px;border-radius:50%;background:rgba(236,72,153,0.12);color:#be185d;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;line-height:1}
+    html.dark .ref-badge{background:rgba(236,72,153,0.2);color:#f9a8d4}
+    .ref-title-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .ref-arrow{color:#d1d5db;font-size:12px;flex-shrink:0}
+    /* 上角标 */
+    .ref-sup{cursor:pointer;color:#ec4899;font-weight:600;font-size:11px;line-height:0;vertical-align:super;padding:0 1px;text-decoration:none;transition:all .15s}
+    .ref-sup:hover{background:rgba(236,72,153,0.12);border-radius:3px}
+    html.dark .ref-sup{color:#f9a8d4}
+    html.dark .ref-sup:hover{background:rgba(236,72,153,0.2)}
+
+    @media(max-width:768px){.sidebar{display:none}.msg-user,.msg-ai{max-width:92%}}
 
     /* ====== 删除确认弹窗 ====== */
     .modal-overlay{position:fixed;inset:0;background:rgba(15,16,25,0.5);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:100;animation:fadeIn .2s ease-out}
@@ -198,9 +314,12 @@
         <h2 id="chatTitle" class="text-[15px] font-semibold text-gray-800 dark:text-gray-100">新对话</h2>
       </div>
       <div class="flex items-center gap-2">
-        <button id="webSearchToggle" class="web-search-toggle">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="16.61" y1="16.61" x2="21" y2="21"/></svg>
-          <span id="searchLabel">联网搜索</span>
+        <button id="webSearchToggle" class="web-search-toggle" type="button" role="switch" aria-checked="false">
+          <span class="ws-switch"></span>
+          <span class="ws-label">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="16.61" y1="16.61" x2="21" y2="21"/></svg>
+            <span id="searchLabel">联网搜索</span>
+          </span>
         </button>
       </div>
     </div>
@@ -247,11 +366,23 @@
             已开启联网搜索，将基于实时信息回答
           </div>
         </div>
-        <div class="input-wrap">
-          <textarea id="messageInput" rows="1" class="w-full bg-transparent outline-none resize-none px-4 py-3 pr-[52px] text-[14px] text-gray-800 dark:text-gray-100 placeholder:text-gray-400" style="line-height:1.55;max-height:200px" placeholder="向 Baomi Agent 发送消息...  Enter 发送 / Shift+Enter 换行"></textarea>
-          <button id="sendBtn" class="send-btn" title="发送">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          </button>
+        <div id="inputWrap" class="input-wrap">
+          <!-- 输入行：label(附件) + textarea + send-btn -->
+          <div class="input-row">
+            <label for="fileInput" class="attach-btn" title="上传附件">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </label>
+            <textarea id="messageInput" rows="1" class="w-full bg-transparent outline-none resize-none px-2 py-3 pr-[52px] text-[14px] text-gray-800 dark:text-gray-100 placeholder:text-gray-400" style="line-height:1.55;max-height:200px" placeholder="向 Baomi Agent 发送消息...  Enter 发送 / Shift+Enter 换行"></textarea>
+            <button id="sendBtn" class="send-btn" title="发送" style="position:static;margin-right:2px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+          </div>
+          <!-- 离屏隐藏的 file input -->
+          <input type="file" id="fileInput" multiple accept="image/*,.txt,.md,.pdf" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden" />
+          <!-- 附件栏 -->
+          <div id="attachBar" class="attach-bar hidden">
+            <div class="attach-list" id="attachList"></div>
+          </div>
         </div>
         <div class="text-[11px] text-gray-400 mt-2 text-center">Baomi Agent 可能会出错，重要信息请自行核实</div>
       </div>
@@ -293,13 +424,19 @@ document.getElementById('themeBtn').addEventListener('click', ()=>{
   applyTheme(next); localStorage.setItem('theme', next);
 });
 
-/* ============ 联网搜索 ============ */
-let webSearchEnabled = false;
+/* ============ 联网搜索 Toggle（会话级记忆 localStorage） ============ */
+let webSearchEnabled = localStorage.getItem('webSearchEnabled') === '1';
+(function applyWsUI(){
+  document.getElementById('webSearchToggle').classList.toggle('active', webSearchEnabled);
+  document.getElementById('webSearchToggle').setAttribute('aria-checked', webSearchEnabled ? 'true' : 'false');
+  document.getElementById('searchLabel').textContent = webSearchEnabled ? '已联网' : '联网搜索';
+})();
 document.getElementById('webSearchToggle').addEventListener('click', ()=>{
   webSearchEnabled = !webSearchEnabled;
+  localStorage.setItem('webSearchEnabled', webSearchEnabled ? '1' : '0');
   document.getElementById('webSearchToggle').classList.toggle('active', webSearchEnabled);
-  document.getElementById('searchLabel').textContent = webSearchEnabled?'已联网搜索':'联网搜索';
-  document.getElementById('searchStatusRow').classList.toggle('hidden', !webSearchEnabled);
+  document.getElementById('webSearchToggle').setAttribute('aria-checked', webSearchEnabled ? 'true' : 'false');
+  document.getElementById('searchLabel').textContent = webSearchEnabled ? '已联网' : '联网搜索';
 });
 
 /* ============ 会话状态 ============ */
@@ -377,10 +514,10 @@ async function loadSession(sid){
   let i=0;
   while(i<msgs.length){
     if(msgs[i].role==='user'){
-      renderUserBubble(msgs[i].content);
+      renderUserBubble(msgs[i].content, msgs[i].files || []);
       i++;
     }else if(msgs[i].role==='assistant'){
-      renderAiBubble(msgs[i].content);
+      renderAiBubble(msgs[i].content, msgs[i].sources || []);
       i++;
     }else i++;
   }
@@ -391,7 +528,25 @@ async function loadSession(sid){
 function escapeHtml(str){ const d=document.createElement('div'); d.textContent=str; return d.innerHTML; }
 function renderMarkdown(md){
   const blocks=[];
-  md=md.replace(/```(\w*)\n([\s\S]*?)```/g,(m,lang,code)=>{const i=blocks.length;blocks.push(`<pre><code${lang?` class="language-${lang}"`:''}>${escapeHtml(code.trim())}</code></pre>`);return`\u0000C${i}\u0000`;});
+  md=md.replace(/```(\w*)\n([\s\S]*?)```/g,(m,lang,code)=>{
+    const i=blocks.length;
+    // 代码块组件：头部(语言+复制) + pre > code
+    const codeHtml = escapeHtml(code.trim());
+    const langClass = lang ? ` language-${lang}` : '';
+    const langDisplay = lang || 'text';
+    blocks.push(
+      `<div class="code-block">` +
+      `<div class="code-block__header">` +
+      `<span class="code-block__lang">${escapeHtml(langDisplay)}</span>` +
+      `<button class="code-block__copy" data-code="${encodeURIComponent(code.trim())}">` +
+      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>` +
+      `复制</button>` +
+      `</div>` +
+      `<pre><code class="language-markup${langClass}">${codeHtml}</code></pre>` +
+      `</div>`
+    );
+    return`\u0000C${i}\u0000`;
+  });
   md=md.replace(/`([^`]+)`/g,(_,c)=>`<code>${escapeHtml(c)}</code>`);
   md=md.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
   md=md.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
@@ -410,32 +565,127 @@ function renderMarkdown(md){
   flush();return out.join('\n');
 }
 
+/* ============ Prism 高亮 + 复制按钮 post-render hook ============ */
+function enhanceCodeBlocks(wrap){
+  if(!wrap){ if(typeof Prism!=='undefined') Prism.highlightAll(); return; }
+  if(typeof Prism!=='undefined'){
+    wrap.querySelectorAll('pre code').forEach(el=>{
+      if(!el.classList.contains('language-markup')){
+        // 已经是特定语言 class
+      }
+      Prism.highlightElement(el);
+    });
+  }
+  // 绑定复制按钮
+  wrap.querySelectorAll('.code-block__copy').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const code = decodeURIComponent(btn.dataset.code || '');
+      if(!code){ showToast('没有可复制内容'); return; }
+      navigator.clipboard.writeText(code).then(()=>{
+        const origText = btn.textContent;
+        btn.textContent = '✓ 已复制';
+        btn.style.color = '#22c55e';
+        btn.style.borderColor = '#22c55e';
+        setTimeout(()=>{
+          btn.textContent = origText;
+          btn.style.color = '';
+          btn.style.borderColor = '';
+        }, 1500);
+      }).catch(()=>showToast('复制失败'));
+    });
+  });
+}
+
 /* ============ 渲染 ============ */
 const chatScroll = document.getElementById('chatScroll');
 function scrollToBottom(){ chatScroll.scrollTop = chatScroll.scrollHeight; }
 function hideEmpty(){ document.getElementById('emptyState').classList.add('hidden'); document.getElementById('messageList').classList.remove('hidden'); }
 function showEmpty(){ document.getElementById('emptyState').classList.remove('hidden'); document.getElementById('messageList').classList.add('hidden'); document.getElementById('messageList').innerHTML=''; }
 
-function renderUserBubble(text){
+function renderUserBubble(text, files){
   const ml = document.getElementById('messageList');
-  const wrap = document.createElement('div');
+
+  // 先渲染图片/文件附件（独立 msg-wrap，豆包风格：不包在粉色气泡里）
+  if(files && files.length){
+    let imgsHtml = '', docsHtml = '';
+    files.forEach(f=>{
+      if(f.kind==='image' && f.content){
+        imgsHtml += '<div class="user-bubble-img">' +
+                    '<img src="data:'+f.mimetype+';base64,'+f.content+'" />' +
+                   '</div>';
+      }else{
+        let iconChar = getFileIcon(f.kind||'', f.filename);
+        let safeName = escapeHtml(f.filename);
+        let sz = formatSize(f.size);
+        docsHtml += '<div class="user-bubble-file">' +
+                    '<div class="user-bubble-file__icon">'+iconChar+'</div>' +
+                    '<div>' +
+                      '<div class="user-bubble-file__name">'+safeName+'</div>' +
+                      '<div class="user-bubble-file__meta">'+sz+'</div>' +
+                    '</div>' +
+                   '</div>';
+      }
+    });
+
+    if(imgsHtml){
+      let wrapImg = document.createElement('div');
+      wrapImg.className = 'msg-wrap flex gap-3 justify-end';
+      wrapImg.innerHTML = '<div class="user-bubble-media">'+imgsHtml+'</div>';
+      // 绑定图片点击放大
+      wrapImg.querySelectorAll('.user-bubble-img img').forEach(img=>{
+        img.addEventListener('click',()=>{
+          const viewer = document.createElement('div');
+          viewer.className = 'img-viewer';
+          viewer.innerHTML = '<img src="'+img.src+'" />';
+          viewer.addEventListener('click',()=>viewer.remove());
+          document.body.appendChild(viewer);
+        });
+      });
+      ml.appendChild(wrapImg);
+    }
+
+    if(docsHtml){
+      let wrapFile = document.createElement('div');
+      wrapFile.className = 'msg-wrap flex gap-3 justify-end';
+      wrapFile.innerHTML = '<div class="user-bubble-file-row">'+docsHtml+'</div>';
+      ml.appendChild(wrapFile);
+    }
+  }
+
+  // 再渲染文字气泡（粉色 msg-user，P0-1 不再显示"我"头像标签）
+  let safeText = escapeHtml(text||'').replace(/\n/g,'<br>');
+  let wrap = document.createElement('div');
   wrap.className = 'msg-wrap flex gap-3 justify-end';
-  wrap.innerHTML = `<div class="msg-user">${escapeHtml(text)}</div><div class="avatar avatar-user">我</div>`;
-  ml.appendChild(wrap); scrollToBottom();
+  wrap.innerHTML = '<div class="msg-user">'+safeText+'</div>';
+  ml.appendChild(wrap);
+  scrollToBottom();
 }
 function renderAiLoading(){
   const ml = document.getElementById('messageList');
   const wrap = document.createElement('div');
   wrap.className = 'msg-wrap flex gap-3';
-  wrap.innerHTML = `<img src="小猪.jpg" class="avatar" style="width:36px;height:36px;border-radius:10px;object-fit:contain;object-position:center;background:#fff;padding:2px;box-sizing:border-box"><div class="msg-ai"><div class="dot-pulse"><span></span><span></span><span></span></div></div>`;
+  const loadingText = webSearchEnabled ? '🔍正在检索网页，生成回答中…' : '正在生成回答…';
+  wrap.innerHTML = `<img src="小猪.jpg" class="avatar" style="width:36px;height:36px;border-radius:10px;object-fit:contain;object-position:center;background:#fff;padding:2px;box-sizing:border-box"><div class="msg-ai md"><div class="dot-pulse"><span></span><span></span><span></span></div><div class="loading-text" style="font-size:12px;color:#9ca3af;margin-top:8px;">${loadingText}</div></div>`;
   ml.appendChild(wrap); scrollToBottom();
   return wrap;
 }
-function renderAiBubble(text){
+function renderAiBubble(text, sources){
   const ml = document.getElementById('messageList');
   const wrap = document.createElement('div');
   wrap.className = 'msg-wrap flex gap-3';
-  wrap.innerHTML = `<img src="小猪.jpg" class="avatar" style="width:36px;height:36px;border-radius:10px;object-fit:contain;object-position:center;background:#fff;padding:2px;box-sizing:border-box"><div class="msg-ai md">${renderMarkdown(text)}</div>`;
+  const aiDiv = document.createElement('div');
+  aiDiv.className = 'msg-ai md';
+  aiDiv.innerHTML = renderMarkdown(text);
+  convertSuperscripts(aiDiv);
+  wrap.innerHTML = `<img src="小猪.jpg" class="avatar" style="width:36px;height:36px;border-radius:10px;object-fit:contain;object-position:center;background:#fff;padding:2px;box-sizing:border-box">`;
+  wrap.appendChild(aiDiv);
+  // Prism 高亮 + 复制按钮
+  enhanceCodeBlocks(wrap);
+  // 历史消息也渲染 sources
+  if(sources && sources.length){
+    renderSources(aiDiv, sources);
+    bindSupScroll(aiDiv, sources);
+  }
   // 历史消息也加工具栏
   setTimeout(()=>bindTools(wrap, text), 0);
   ml.appendChild(wrap); scrollToBottom();
@@ -508,11 +758,211 @@ function bindTools(wrap, rawText){
   });
 }
 
-function replaceWithReply(wrap, text){
-  wrap.innerHTML = `<img src="小猪.jpg" class="avatar" style="width:36px;height:36px;border-radius:10px;object-fit:contain;object-position:center;background:#fff;padding:2px;box-sizing:border-box"><div class="msg-ai md">${renderMarkdown(text)}</div>`;
+function replaceWithReply(wrap, text, sources){
+  const aiDiv = document.createElement('div');
+  aiDiv.className = 'msg-ai md';
+  aiDiv.innerHTML = renderMarkdown(text);
+  // P0-4: 上角标 Unicode¹²³ → <sup> 可点击
+  convertSuperscripts(aiDiv);
+  wrap.innerHTML = `<img src="小猪.jpg" class="avatar" style="width:36px;height:36px;border-radius:10px;object-fit:contain;object-position:center;background:#fff;padding:2px;box-sizing:border-box">`;
+  wrap.appendChild(aiDiv);
+  enhanceCodeBlocks(wrap);
+  if(sources && sources.length){
+    renderSources(aiDiv, sources);
+    bindSupScroll(aiDiv, sources);
+  }
   bindTools(wrap, text);
   scrollToBottom();
 }
+
+/* ============ 渲染 sources 引用来源卡片（折叠组件） ============ */
+function renderSources(aiDiv, sources){
+  if(!sources || !sources.length) return;
+  // 去重（同一个 source_id 可能出现多次）
+  const seen = new Set();
+  const unique = sources.filter(s => { if(seen.has(s.source_id)) return false; seen.add(s.source_id); return true; });
+  const html = `<details class="ref-collapse" open>
+    <summary>
+      <span class="ref-chevron">▶</span>
+      <span>参考来源</span>
+      <span class="ref-count">${unique.length}</span>
+    </summary>
+    <div class="ref-list">
+      ${unique.map((s,i) => `
+        <a class="ref-item" id="ref-${aiDiv.dataset.refs||''}-${i}" data-source-id="${s.source_id}" href="${escapeHtml(s.link)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(s.title)}">
+          <span class="ref-badge">${s.source_id}</span>
+          <span class="ref-title-text">${escapeHtml(s.title)}</span>
+          <span class="ref-arrow">↗</span>
+        </a>
+      `).join('')}
+    </div>
+  </details>`;
+  aiDiv.dataset.refs = (aiDiv.dataset.refs||'') + Date.now();
+  aiDiv.insertAdjacentHTML('beforeend', html);
+}
+
+/* ============ 上角标 Unicode¹²³⁴⁵ → <sup class="ref-sup"> ============ */
+function convertSuperscripts(aiDiv){
+  if(!aiDiv) return;
+  // 匹配 Unicode 上标字符 ¹²³⁴⁵⁶⁷⁸⁹
+  const SUP_MAP = {'¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9','⁰':'0'};
+  // 只在文本节点里替换，避免破坏 <code> 内的内容
+  const walker = document.createTreeWalker(aiDiv, NodeFilter.SHOW_TEXT, {
+    acceptNode(node){
+      // 跳过 code/pre/script/style 里的文本
+      const parent = node.parentElement;
+      if(!parent) return NodeFilter.FILTER_REJECT;
+      const tag = parent.tagName;
+      if(tag === 'CODE' || tag === 'PRE') return NodeFilter.FILTER_REJECT;
+      if(node.nodeValue && /[¹²³⁴⁵⁶⁷⁸⁹⁰]/.test(node.nodeValue)) return NodeFilter.FILTER_ACCEPT;
+      return NodeFilter.FILTER_REJECT;
+    }
+  });
+  const nodes = [];
+  let n = walker.nextNode();
+  while(n){ nodes.push(n); n = walker.nextNode(); }
+  nodes.forEach(node => {
+    const frag = document.createDocumentFragment();
+    const text = node.nodeValue;
+    let i = 0, buf = '';
+    while(i < text.length){
+      const ch = text[i];
+      if(SUP_MAP[ch]){
+        if(buf){ frag.appendChild(document.createTextNode(buf)); buf=''; }
+        const sup = document.createElement('sup');
+        sup.className = 'ref-sup';
+        sup.dataset.sourceId = SUP_MAP[ch];
+        sup.textContent = SUP_MAP[ch];
+        frag.appendChild(sup);
+      }else{
+        buf += ch;
+      }
+      i++;
+    }
+    if(buf) frag.appendChild(document.createTextNode(buf));
+    node.parentNode.replaceChild(frag, node);
+  });
+}
+
+/* ============ 上角标点击 → 滚动到对应 ref-item 并高亮 ============ */
+function bindSupScroll(aiDiv, sources){
+  if(!sources || !sources.length) return;
+  const sourceIds = new Set(sources.map(s => String(s.source_id)));
+  aiDiv.querySelectorAll('.ref-sup').forEach(sup => {
+    sup.addEventListener('click', (e) => {
+      e.preventDefault();
+      const sid = sup.dataset.sourceId;
+      if(!sid || !sourceIds.has(sid)) return;
+      // 找到同一个 aiDiv 里对应的 ref-item
+      const target = aiDiv.querySelector('.ref-item[data-source-id="'+sid+'"]');
+      if(!target) return;
+      // 展开 details（如果折叠了）
+      const details = target.closest('details');
+      if(details && !details.open) details.open = true;
+      // 滚动 + 高亮
+      target.scrollIntoView({behavior:'smooth', block:'center'});
+      target.classList.add('flash');
+      setTimeout(()=>target.classList.remove('flash'), 800);
+    });
+  });
+}
+
+/* ============ 文件上传 ============ */
+let pendingFiles = []; // [{filename, kind, content, mimetype, size, error}]
+
+function formatSize(bytes){
+  if(!bytes) return '';
+  if(bytes<1024) return bytes+' B';
+  if(bytes<1024*1024) return (bytes/1024).toFixed(1)+' KB';
+  return (bytes/1024/1024).toFixed(1)+' MB';
+}
+
+function getFileIcon(kind, filename){
+  if(kind==='image') return '🖼️';
+  if(kind==='pdf') return '📕';
+  const ext = (filename.match(/\.(\w+)$/)||[])[1]?.toLowerCase()||'';
+  if(ext==='md') return '📝';
+  if(ext==='txt') return '📄';
+  return '📎';
+}
+
+function getFileIconClass(kind, filename){
+  if(kind==='pdf') return 'attach-file__icon--pdf';
+  const ext = (filename.match(/\.(\w+)$/)||[])[1]?.toLowerCase()||'';
+  if(ext==='md') return 'attach-file__icon--md';
+  return 'attach-file__icon--txt';
+}
+
+function renderAttachBar(){
+  const bar = document.getElementById('attachBar');
+  const list = document.getElementById('attachList');
+  if(!pendingFiles.length){
+    bar.classList.add('hidden');
+    return;
+  }
+  bar.classList.remove('hidden');
+
+  // 分两类渲染
+  let html = '';
+  pendingFiles.forEach((f,i)=>{
+    const err = f.error;
+    if(f.kind==='image' && f.content){
+      // 微信风格：68x68 缩略图卡片
+      html += `<div class="attach-img" title="${escapeHtml(f.filename)}">
+        <img src="data:${f.mimetype};base64,${f.content}" alt="${escapeHtml(f.filename)}" />
+        <button class="attach-img__remove" data-idx="${i}" title="移除">✕</button>
+      </div>`;
+    }else{
+      // 豆包风格：文件卡片
+      html += `<div class="attach-file" title="${escapeHtml(f.filename)}${err?' — '+err:''}">
+        <div class="attach-file__icon ${getFileIconClass(f.kind,f.filename)}">${getFileIcon(f.kind,f.filename)}</div>
+        <div class="attach-file__body">
+          <div class="attach-file__name">${escapeHtml(f.filename)}</div>
+          <div class="attach-file__meta">${err?'上传失败':formatSize(f.size)}</div>
+        </div>
+        <button class="attach-file__remove" data-idx="${i}" title="移除">✕</button>
+      </div>`;
+    }
+  });
+  list.innerHTML = html;
+  // 绑定移除按钮
+  list.querySelectorAll('[class*="__remove"]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const idx = parseInt(btn.dataset.idx);
+      pendingFiles.splice(idx,1);
+      renderAttachBar();
+    });
+  });
+}
+
+async function uploadFiles(fileList){
+  if(!fileList || !fileList.length) return;
+  const fd = new FormData();
+  for(const f of fileList){ fd.append('files', f); }
+  try{
+    const res = await fetch('/api/upload', {
+      method:'POST', body:fd,
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error||'上传失败');
+    // 合并（去重按 filename）
+    for(const f of data.files){
+      if(f.error){ showToast(`${f.filename}: ${f.error}`); continue; }
+      if(!pendingFiles.some(p=>p.filename===f.filename)){
+        pendingFiles.push(f);
+      }
+    }
+    renderAttachBar();
+    showToast(`已上传 ${data.files.filter(f=>!f.error).length} 个文件`);
+  }catch(err){
+    showToast('上传失败：'+err.message);
+  }
+}
+
+document.getElementById('fileInput').addEventListener('change',(e)=>{
+  uploadFiles(e.target.files);
+  e.target.value = ''; // 允许重复选同文件
+});
 
 /* ============ 发送 ============ */
 let isGenerating = false, abortController = null;
@@ -527,10 +977,13 @@ messageInput.addEventListener('input', ()=>{
 async function sendMessage(text){
   if(!text.trim()||isGenerating) return;
   if(!currentSessionId){ await newSession(); }
-  _retryUserMsg = text.trim();  // 记录，供重试使用
+  _retryUserMsg = text.trim();
   hideEmpty();
-  renderUserBubble(text.trim());
+  // 用户气泡里渲染图片缩略图 + 文件卡片
+  const filesToSend = pendingFiles.slice();
+  renderUserBubble(text.trim(), filesToSend);
   messageInput.value=''; messageInput.style.height='auto';
+  pendingFiles = []; renderAttachBar(); // 提前清空附件栏
 
   isGenerating=true;
   sendBtn.classList.add('stop');
@@ -541,12 +994,17 @@ async function sendMessage(text){
   try{
     const res = await fetch('/api/chat',{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({session_id:currentSessionId, message:text.trim(), web_search:webSearchEnabled}),
+      body:JSON.stringify({
+        session_id:currentSessionId,
+        message:text.trim(),
+        web_search:webSearchEnabled,
+        files: filesToSend,
+      }),
       signal:abortController.signal,
     });
     const data = await res.json();
     if(!res.ok) throw new Error(data.error||`HTTP ${res.status}`);
-    replaceWithReply(loadingWrap, data.reply);
+    replaceWithReply(loadingWrap, data.reply, data.sources || []);
     if(data.title && data.title!=='新对话') document.getElementById('chatTitle').textContent = data.title;
     refreshSessionList();
   }catch(err){

@@ -2,3 +2,4 @@ python-dotenv
 requests
 flask
 flask-cors
+PyPDF2
