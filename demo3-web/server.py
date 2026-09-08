@@ -687,19 +687,23 @@ EXT_TYPE_MAP = {
     ".py": ("🐍 PY", "python"),
 }
 
-# 盗版 / 灰色站 blocklist（合规红线，主动过滤）
+# 硬盗版 / 灰色站 blocklist（只拦绝对违法的，合法站放开让用户自己判断）
 PIRACY_BLOCKLIST = (
     # 学术盗版
     "sci-hub", "libgen", "library genesis", "bookzz", "scihub",
-    # 盗版下载
-    "1337x", "thepiratebay", "torrent", "kickass", "rarbg", "yts", "yify",
-    # 盗版影视
-    "iqiyi", "youku", "tencentvideo", "bilibili", "youtube", "优酷", "爱奇艺",
-    # 盗版音乐
-    "mp3juice", "mp3converter", "freemp3",
+    # 盗版 BT / 磁力
+    "1337x", "thepiratebay", "kickass", "rarbg", "yts.mx", "yify",
+    # 盗版 MP3 converter
+    "mp3juice", "mp3converter", "freemp3", "mp3skull",
     # 常见盗版后缀
     ".torrent", "magnet:",
+    # 盗版网盘聚合
+    "aliyundrivepan", "aliyunpan",
 )
+
+# 正常网站（youtube / bilibili / iqiyi / youku / 百度文库 / CSDN 等）
+# 不 block——里面有大量合法/免费/开放授权资源，让用户自己判断
+# 但可以做标签提示，告诉用户"这是流媒体站，不是直链文件"
 
 
 def _guess_filetype(url: str, content_type: str = "") -> tuple[str, str]:
@@ -720,8 +724,46 @@ def _guess_filetype(url: str, content_type: str = "") -> tuple[str, str]:
     return ("🔗 网页", "web")
 
 
+def _classify_domain(url: str) -> str:
+    """给域名打标签，帮助用户判断"这是直链文件还是流媒体页"。"""
+    domain = url.split("/")[2] if "://" in url else ""
+    domain = domain.lower()
+    tags = []
+    if any(d in domain for d in ("youtube.com", "youtu.be")):
+        tags.append("▶️ YouTube")
+    elif "bilibili.com" in domain:
+        tags.append("▶️ B站")
+    elif "iqiyi.com" in domain:
+        tags.append("▶️ 爱奇艺")
+    elif "youku.com" in domain:
+        tags.append("▶️ 优酷")
+    elif "qq.com" in domain:
+        tags.append("▶️ 腾讯")
+    elif "music.163.com" in domain or "163.com" in domain:
+        tags.append("🎵 网易云")
+    elif "kugou.com" in domain or "kuwo.cn" in domain:
+        tags.append("🎵 酷狗/酷我")
+    elif "baidu.com" in domain:
+        tags.append("🔍 百度")
+    elif "wenku.baidu.com" in domain:
+        tags.append("📘 百度文库")
+    elif "csdn.net" in domain:
+        tags.append("💻 CSDN")
+    elif "zhihu.com" in domain:
+        tags.append("💬 知乎")
+    elif "github.com" in domain:
+        tags.append("🐙 GitHub")
+    elif "gitee.com" in domain:
+        tags.append("🐙 Gitee")
+    elif "arxiv.org" in domain:
+        tags.append("📚 arXiv")
+    elif "google.com" in domain:
+        tags.append("🔍 Google")
+    return " · ".join(tags)
+
+
 def _is_legit_resource(url: str, snippet: str = "") -> bool:
-    """快速过滤盗版站（合规红线）。"""
+    """只拦硬盗版站，正常网站放开。"""
     hay = (url + " " + snippet).lower()
     for bad in PIRACY_BLOCKLIST:
         if bad in hay:
@@ -731,11 +773,13 @@ def _is_legit_resource(url: str, snippet: str = "") -> bool:
 
 @app.route("/api/resource/search", methods=["POST"])
 def api_resource_search():
-    """通用资源搜索：Serper 搜 → 过滤文件链接 → 返回给前端让用户选。
+    """通用资源搜索：多路 Serper 并发搜 → 合并去重 → HEAD 探测类型 → 返回。
 
-    query: 用户关键词
-    filetype: 可选过滤（all/pdf/ebook/audio/video/archive/app/python/text）
-    max_results: 最多返回多少条（默认 10，硬上限 20）
+    改进点：
+    1. 多路并发（不加 filetype + 加 filetype:pdf/mp3/epub）→ 中文关键词也能命中文件
+    2. HEAD 失败不丢弃结果 → 退回纯 URL 扩展名猜测
+    3. 域名标签（🐙GitHub / ▶️B站 / 🎵网易云）
+    4. 支持中国站（baidu / wenku / csdn / zhihu）—— 不 block
     """
     if not SERPER_API_KEY:
         return jsonify({"error": "未配置 SERPER_API_KEY"}), 500
@@ -748,46 +792,86 @@ def api_resource_search():
     if not query:
         return jsonify({"error": "缺少 query 参数"}), 400
 
-    # Serper 加 filetype 后缀提升命中率（pdf / epub / mp3 等）
-    serper_q = query
-    ft_suffix = {
-        "pdf": "filetype:pdf",
-        "ebook": "filetype:epub OR filetype:mobi",
-        "audio": "filetype:mp3",
-        "video": "filetype:mp4 OR filetype:mkv",
-        "archive": "filetype:zip OR filetype:rar",
-        "app": "filetype:exe OR filetype:apk",
-        "python": "filetype:py OR filetype:whl",
-        "text": "filetype:txt OR filetype:md",
-    }.get(filetype_filter, "")
-    if ft_suffix:
-        serper_q = f"{query} {ft_suffix}"
+    # ===== 构造多路 Serper 查询（Google + Bing 双引擎并发）=====
+    # Google Serper：英文关键词强，Bing Serper：中文关键词 + 中文站强
+    has_chinese = any('\u4e00' <= c <= '\u9fff' for c in query)
 
-    # 1. Serper 搜索
-    try:
-        resp = requests.post(
-            SERPER_URL,
-            headers={"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"},
-            data=json.dumps({"q": serper_q, "num": max_results * 2}),  # 多拿点供过滤
-            timeout=15,
-        )
-        resp.raise_for_status()
-        organic = resp.json().get("organic", [])
-    except Exception as e:
-        return jsonify({"error": f"搜索失败: {e}"}), 502
+    # 中文关键词：基础查询 + 加辅助词（下载/免费/官方/site:cn）提升中文站命中
+    base_queries = [query]
+    if has_chinese:
+        base_queries.extend([
+            f"{query} 下载",
+            f"{query} 免费",
+            f"{query} 官方",
+        ])
 
-    # 2. 对每个结果做 HEAD 探测 Content-Type（判断是不是真文件）
+    queries_by_engine = {}
+    for eng in ["google", "bing"]:
+        q_list = list(base_queries)
+        if filetype_filter != "all":
+            ft_suffix_map = {
+                "doc":   ["filetype:pdf", "filetype:doc"],
+                "ebook": ["filetype:epub", "filetype:mobi"],
+                "audio": ["filetype:mp3", "filetype:wav"],
+                "video": ["filetype:mp4", "filetype:mkv"],
+                "archive": ["filetype:zip", "filetype:rar"],
+                "app":   ["filetype:exe", "filetype:apk"],
+                "python": ["filetype:py", "filetype:whl"],
+                "text":  ["filetype:txt", "filetype:md"],
+            }
+            for suffix in ft_suffix_map.get(filetype_filter, []):
+                q_list.append(f"{query} {suffix}")
+        queries_by_engine[eng] = q_list
+
+    # ===== 并发发 Serper（多引擎 × 多查询）=====
+    import concurrent.futures
+    all_organic = []
+    seen_urls = set()
+
+    def _serper_one(q, engine="google"):
+        try:
+            payload = {"q": q, "num": 8}
+            if engine != "google":
+                payload["engine"] = engine  # bing / duckduckgo / youtube
+            resp = requests.post(
+                SERPER_URL,
+                headers={"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"},
+                data=json.dumps(payload),
+                timeout=12,
+            )
+            resp.raise_for_status()
+            return resp.json().get("organic", [])
+        except Exception:
+            return []
+
+    tasks = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
+        for eng, qlist in queries_by_engine.items():
+            for q in qlist:
+                tasks.append(pool.submit(_serper_one, q, eng))
+        for fut in concurrent.futures.as_completed(tasks):
+            for r in fut.result():
+                url = r.get("link", "")
+                if url and url not in seen_urls:
+                    seen_urls.add(url)
+                    all_organic.append(r)
+
+    if not all_organic:
+        return jsonify({"error": "Serper 返回空结果（可能网络问题）"}), 502
+
+    # ===== 去盗版 + HEAD 探测 =====
     results = []
-    for r in organic:
+    for r in all_organic:
         url = r.get("link", "")
-        if not url or not _is_legit_resource(url, r.get("snippet", "")):
+        if not _is_legit_resource(url, r.get("snippet", "")):
             continue
 
         title = r.get("title", "")
         snippet = r.get("snippet", "")[:200]
-        domain = url.split("/")[2] if "://" in url else url[:30]
+        domain_tag = _classify_domain(url)
+        domain_raw = url.split("/")[2] if "://" in url else url[:30]
 
-        # HEAD 探类型（超时 3 秒，失败回退到纯 URL 扩展名猜测）
+        # HEAD 探类型（超时 3 秒，失败继续——用 URL 扩展名兜底）
         ct = ""
         size_kb = None
         try:
@@ -798,26 +882,30 @@ def api_resource_search():
             if cl.isdigit():
                 size_kb = round(int(cl) / 1024, 1)
         except Exception:
-            pass  # 不管，继续
+            pass  # 失败不丢弃，下面 _guess_filetype 会用 URL 扩展名兜底
 
         ft_label, ft_cat = _guess_filetype(url, ct)
 
-        # 类型过滤
+        # 类型过滤（用户选了 PDF 就只留 doc）
         if filetype_filter != "all" and filetype_filter != ft_cat:
             continue
 
         results.append({
             "title": title,
             "snippet": snippet,
-            "domain": domain,
+            "domain": domain_raw,
+            "domain_tag": domain_tag,       # 🐙 GitHub / ▶️ B站 等
             "link": url,
-            "filetype_label": ft_label,   # 📄 PDF
-            "filetype_cat": ft_cat,       # doc
+            "filetype_label": ft_label,     # 📄 PDF / 🔗 网页
+            "filetype_cat": ft_cat,         # doc / web
             "size_kb": size_kb,
         })
 
         if len(results) >= max_results:
             break
+
+    # 排序：有直链文件的放前面（非 web 类型优先）
+    results.sort(key=lambda x: (x["filetype_cat"] == "web", x.get("size_kb") is None))
 
     return jsonify({
         "query": query,
