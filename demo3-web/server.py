@@ -37,6 +37,19 @@ try:
 except ImportError:
     _PLAYWRIGHT_AVAILABLE = False
 
+# 文献下载可选依赖（crawler/paper_download.py）
+# feedparser 未装 → /api/paper/* 路由返回友好提示
+try:
+    sys.path.insert(0, str(Path(__file__).parent / "crawler"))
+    from paper_download import search_arxiv as _search_arxiv, download_pdf as _download_pdf
+    _PAPER_AVAILABLE = True
+except ImportError:
+    _PAPER_AVAILABLE = False
+
+# 文献下载目录（和 sessions/ 同级，启动时自动创建）
+PAPERS_DIR = Path(__file__).parent / "papers"
+PAPERS_DIR.mkdir(exist_ok=True)
+
 
 def fetch_url_text(url: str, timeout: int = 8) -> str | None:
     """用 Playwright 真实浏览器打开 URL，提取页面正文文本。
@@ -530,6 +543,119 @@ def api_clear_session(sid):
     return jsonify({"ok": True})
 
 
+# ========== 文献下载（arXiv 合法免费） ==========
+
+@app.route("/api/paper/search", methods=["POST"])
+def api_paper_search():
+    """只搜不下：返回 arXiv 搜索结果列表（含标题、作者、PDF 链接）。"""
+    if not _PAPER_AVAILABLE:
+        return jsonify({
+            "error": "文献下载模块未启用，请执行: pip install feedparser"
+        }), 500
+
+    data = request.get_json(force=True) or {}
+    query = (data.get("query") or "").strip()
+    max_results = int(data.get("max", 5))
+
+    if not query:
+        return jsonify({"error": "缺少 query 参数"}), 400
+    if max_results > 10:
+        max_results = 10   # 硬上限
+
+    try:
+        results = _search_arxiv(query, max_results=max_results)
+    except Exception as e:
+        return jsonify({"error": f"arXiv 搜索失败: {e}"}), 502
+
+    return jsonify({
+        "query": query,
+        "count": len(results),
+        "results": results,
+    })
+
+
+@app.route("/api/paper/download", methods=["POST"])
+def api_paper_download():
+    """搜 arXiv + 自动下载 PDF 到 papers/ 目录。"""
+    if not _PAPER_AVAILABLE:
+        return jsonify({
+            "error": "文献下载模块未启用，请执行: pip install feedparser"
+        }), 500
+
+    data = request.get_json(force=True) or {}
+    query = (data.get("query") or "").strip()
+    max_results = int(data.get("max", 3))
+
+    if not query:
+        return jsonify({"error": "缺少 query 参数"}), 400
+    if max_results > 10:
+        max_results = 10
+
+    # 1. 搜
+    try:
+        results = _search_arxiv(query, max_results=max_results)
+    except Exception as e:
+        return jsonify({"error": f"arXiv 搜索失败: {e}"}), 502
+
+    if not results:
+        return jsonify({"error": "arXiv 没找到匹配论文"}), 404
+
+    # 2. 下（用 requests Session，复用连接）
+    session = requests.Session()
+    session.headers.update({
+        "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                       "AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36")
+    })
+
+    downloaded = []
+    for r in results:
+        arxiv_id = r["arxiv_id"]
+        filename_base = f"{arxiv_id.replace('.', '_')}_{re.sub(r'[\\/:*?"<>|]', '_', r['title'][:40])}"
+        path = _download_pdf(session, r["pdf_url"], PAPERS_DIR, filename_base)
+        if path:
+            downloaded.append({
+                "arxiv_id": arxiv_id,
+                "title": r["title"],
+                "filename": path.name,
+                "size_kb": round(path.stat().st_size / 1024, 1),
+            })
+        time.sleep(0.5)  # 礼貌延时
+
+    return jsonify({
+        "query": query,
+        "total": len(results),
+        "downloaded_count": len(downloaded),
+        "files": downloaded,
+    })
+
+
+@app.route("/api/paper/list", methods=["GET"])
+def api_paper_list():
+    """列 papers/ 目录下所有 PDF 文件。"""
+    if not PAPERS_DIR.exists():
+        return jsonify({"files": []})
+
+    files = []
+    for f in PAPERS_DIR.glob("*.pdf"):
+        files.append({
+            "filename": f.name,
+            "size_kb": round(f.stat().st_size / 1024, 1),
+            "mtime": time.strftime("%Y-%m-%d %H:%M", time.localtime(f.stat().st_mtime)),
+        })
+    # 按修改时间倒序
+    files.sort(key=lambda x: x["mtime"], reverse=True)
+    return jsonify({"papers_dir": str(PAPERS_DIR), "files": files})
+
+
+@app.route("/api/paper/file/<path:filename>", methods=["GET"])
+def api_paper_file(filename):
+    """直接下载已下的 PDF（浏览器弹出下载 / 内嵌预览）。"""
+    safe_name = os.path.basename(filename)  # 防路径遍历
+    if not safe_name.endswith(".pdf"):
+        return jsonify({"error": "只允许 PDF"}), 400
+    return send_from_directory(str(PAPERS_DIR), safe_name, as_attachment=True)
+
+
 @app.route("/api/health", methods=["GET"])
 def api_health():
     return jsonify({
@@ -537,6 +663,7 @@ def api_health():
         "model": DeepSeekClient().model,
         "web_search": bool(SERPER_API_KEY),
         "playwright": _PLAYWRIGHT_AVAILABLE,
+        "paper_download": _PAPER_AVAILABLE,
         "sessions_count": len(list_sessions()),
     })
 

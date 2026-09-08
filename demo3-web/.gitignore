@@ -24,6 +24,15 @@ env/
 # 会话持久化数据（包含对话历史）
 sessions/
 
+# 运行时下载产物（不能提交 PDF / Cookie / 下载文件）
+papers/
+crawler/storage/
+crawler/downloads/
+crawler/logs/
+crawler/.tmp/
+crawler/config.json
+crawler/config.local.json
+
 # 日志 & 临时文件
 *.log
 *.tmp
