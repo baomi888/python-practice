@@ -656,6 +656,263 @@ def api_paper_file(filename):
     return send_from_directory(str(PAPERS_DIR), safe_name, as_attachment=True)
 
 
+# ========== 通用资源搜索 + 下载 ==========
+
+RESOURCES_DIR = Path(__file__).parent / "resources"
+RESOURCES_DIR.mkdir(exist_ok=True)
+
+# 目标文件扩展名 → 类型标签（前端显示用）
+EXT_TYPE_MAP = {
+    ".pdf": ("📄 PDF", "doc"),
+    ".epub": ("📚 EPUB", "ebook"),
+    ".mobi": ("📚 MOBI", "ebook"),
+    ".txt": ("📝 文本", "text"),
+    ".md": ("📝 Markdown", "text"),
+    ".mp3": ("🎵 MP3", "audio"),
+    ".wav": ("🎵 WAV", "audio"),
+    ".flac": ("🎵 FLAC", "audio"),
+    ".mp4": ("🎬 MP4", "video"),
+    ".mov": ("🎬 MOV", "video"),
+    ".avi": ("🎬 AVI", "video"),
+    ".mkv": ("🎬 MKV", "video"),
+    ".zip": ("📦 ZIP", "archive"),
+    ".rar": ("📦 RAR", "archive"),
+    ".7z": ("📦 7Z", "archive"),
+    ".tar": ("📦 TAR", "archive"),
+    ".gz": ("📦 GZ", "archive"),
+    ".exe": ("🔧 EXE", "app"),
+    ".dmg": ("🔧 DMG", "app"),
+    ".apk": ("🔧 APK", "app"),
+    ".whl": ("🐍 WHL", "python"),
+    ".py": ("🐍 PY", "python"),
+}
+
+# 盗版 / 灰色站 blocklist（合规红线，主动过滤）
+PIRACY_BLOCKLIST = (
+    # 学术盗版
+    "sci-hub", "libgen", "library genesis", "bookzz", "scihub",
+    # 盗版下载
+    "1337x", "thepiratebay", "torrent", "kickass", "rarbg", "yts", "yify",
+    # 盗版影视
+    "iqiyi", "youku", "tencentvideo", "bilibili", "youtube", "优酷", "爱奇艺",
+    # 盗版音乐
+    "mp3juice", "mp3converter", "freemp3",
+    # 常见盗版后缀
+    ".torrent", "magnet:",
+)
+
+
+def _guess_filetype(url: str, content_type: str = "") -> tuple[str, str]:
+    """从 URL 扩展名 / Content-Type 猜文件类型。"""
+    from urllib.parse import urlparse, unquote
+    ext = Path(unquote(urlparse(url).path)).suffix.lower()
+    if ext in EXT_TYPE_MAP:
+        return EXT_TYPE_MAP[ext]
+    # Content-Type 兜底
+    ct = content_type.lower()
+    if "application/pdf" in ct: return ("📄 PDF", "doc")
+    if "audio/mpeg" in ct or "audio/mp3" in ct: return ("🎵 MP3", "audio")
+    if "video/mp4" in ct: return ("🎬 MP4", "video")
+    if "application/zip" in ct: return ("📦 ZIP", "archive")
+    if "application/epub" in ct: return ("📚 EPUB", "ebook")
+    if "text/plain" in ct: return ("📝 文本", "text")
+    if "application/json" in ct: return ("📄 JSON", "doc")
+    return ("🔗 网页", "web")
+
+
+def _is_legit_resource(url: str, snippet: str = "") -> bool:
+    """快速过滤盗版站（合规红线）。"""
+    hay = (url + " " + snippet).lower()
+    for bad in PIRACY_BLOCKLIST:
+        if bad in hay:
+            return False
+    return True
+
+
+@app.route("/api/resource/search", methods=["POST"])
+def api_resource_search():
+    """通用资源搜索：Serper 搜 → 过滤文件链接 → 返回给前端让用户选。
+
+    query: 用户关键词
+    filetype: 可选过滤（all/pdf/ebook/audio/video/archive/app/python/text）
+    max_results: 最多返回多少条（默认 10，硬上限 20）
+    """
+    if not SERPER_API_KEY:
+        return jsonify({"error": "未配置 SERPER_API_KEY"}), 500
+
+    data = request.get_json(force=True) or {}
+    query = (data.get("query") or "").strip()
+    filetype_filter = (data.get("filetype") or "all").strip().lower()
+    max_results = min(int(data.get("max", 10)), 20)
+
+    if not query:
+        return jsonify({"error": "缺少 query 参数"}), 400
+
+    # Serper 加 filetype 后缀提升命中率（pdf / epub / mp3 等）
+    serper_q = query
+    ft_suffix = {
+        "pdf": "filetype:pdf",
+        "ebook": "filetype:epub OR filetype:mobi",
+        "audio": "filetype:mp3",
+        "video": "filetype:mp4 OR filetype:mkv",
+        "archive": "filetype:zip OR filetype:rar",
+        "app": "filetype:exe OR filetype:apk",
+        "python": "filetype:py OR filetype:whl",
+        "text": "filetype:txt OR filetype:md",
+    }.get(filetype_filter, "")
+    if ft_suffix:
+        serper_q = f"{query} {ft_suffix}"
+
+    # 1. Serper 搜索
+    try:
+        resp = requests.post(
+            SERPER_URL,
+            headers={"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"},
+            data=json.dumps({"q": serper_q, "num": max_results * 2}),  # 多拿点供过滤
+            timeout=15,
+        )
+        resp.raise_for_status()
+        organic = resp.json().get("organic", [])
+    except Exception as e:
+        return jsonify({"error": f"搜索失败: {e}"}), 502
+
+    # 2. 对每个结果做 HEAD 探测 Content-Type（判断是不是真文件）
+    results = []
+    for r in organic:
+        url = r.get("link", "")
+        if not url or not _is_legit_resource(url, r.get("snippet", "")):
+            continue
+
+        title = r.get("title", "")
+        snippet = r.get("snippet", "")[:200]
+        domain = url.split("/")[2] if "://" in url else url[:30]
+
+        # HEAD 探类型（超时 3 秒，失败回退到纯 URL 扩展名猜测）
+        ct = ""
+        size_kb = None
+        try:
+            head = requests.head(url, timeout=3, allow_redirects=True,
+                                 headers={"User-Agent": "Mozilla/5.0 Chrome/122"})
+            ct = head.headers.get("Content-Type", "")
+            cl = head.headers.get("Content-Length", "0")
+            if cl.isdigit():
+                size_kb = round(int(cl) / 1024, 1)
+        except Exception:
+            pass  # 不管，继续
+
+        ft_label, ft_cat = _guess_filetype(url, ct)
+
+        # 类型过滤
+        if filetype_filter != "all" and filetype_filter != ft_cat:
+            continue
+
+        results.append({
+            "title": title,
+            "snippet": snippet,
+            "domain": domain,
+            "link": url,
+            "filetype_label": ft_label,   # 📄 PDF
+            "filetype_cat": ft_cat,       # doc
+            "size_kb": size_kb,
+        })
+
+        if len(results) >= max_results:
+            break
+
+    return jsonify({
+        "query": query,
+        "count": len(results),
+        "filetype_filter": filetype_filter,
+        "results": results,
+    })
+
+
+@app.route("/api/resource/download", methods=["POST"])
+def api_resource_download():
+    """下载用户选中的那个文件：HTTP GET 直链 → 流式写入 resources/。"""
+    data = request.get_json(force=True) or {}
+    url = (data.get("url") or "").strip()
+    filename = (data.get("filename") or "").strip()
+
+    if not url or not url.startswith(("http://", "https://")):
+        return jsonify({"error": "缺少有效 url"}), 400
+    if not _is_legit_resource(url):
+        return jsonify({"error": "该资源疑似盗版/灰色来源，合规红线禁止下载"}), 403
+
+    try:
+        session = requests.Session()
+        session.headers.update({
+            "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                           "AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36")
+        })
+
+        # HEAD 先拿 Content-Disposition（优先服务器给的文件名）
+        try:
+            head = session.head(url, timeout=10, allow_redirects=True)
+            cd = head.headers.get("Content-Disposition", "")
+            cd_name = re.search(r'filename\s*=\s*(?:["\']?)([^"\';]+)', cd, re.I)
+            if cd_name:
+                filename = cd_name.group(1).strip()
+            cl = head.headers.get("Content-Length", "0")
+        except Exception:
+            cl = "0"
+
+        # 没有 filename → 从 URL 猜
+        if not filename:
+            from urllib.parse import urlparse, unquote
+            path = unquote(urlparse(url).path)
+            filename = Path(path).name or "download"
+
+        filename = re.sub(r'[\\/:*?"<>|]', "_", filename).strip()[:150]
+
+        # 重名去重
+        save_path = RESOURCES_DIR / filename
+        counter = 2
+        while save_path.exists():
+            stem, suffix = Path(filename).stem, Path(filename).suffix
+            save_path = RESOURCES_DIR / f"{stem}_{counter}{suffix}"
+            counter += 1
+
+        # GET 流式下载
+        resp = session.get(url, stream=True, timeout=(10, 120), allow_redirects=True)
+        if resp.status_code in (401, 403):
+            return jsonify({"error": "HTTP 403 —— 需要登录 / 没权限"}), 403
+        if resp.status_code >= 400:
+            return jsonify({"error": f"HTTP {resp.status_code}"}), 400
+
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        done = 0
+        with open(save_path, "wb") as f:
+            for chunk in resp.iter_content(chunk_size=64 * 1024):
+                if chunk:
+                    f.write(chunk)
+                    done += len(chunk)
+
+        size_kb = round(save_path.stat().st_size / 1024, 1)
+        if size_kb < 3:   # 太小 = 不是真文件（可能是 HTML 错误页）
+            save_path.unlink()
+            return jsonify({"error": f"下载的文件过小（{size_kb} KB），可能是错误页"}), 400
+
+        return jsonify({
+            "ok": True,
+            "filename": save_path.name,
+            "size_kb": size_kb,
+            "path": str(save_path),
+        })
+
+    except requests.RequestException as e:
+        return jsonify({"error": f"下载失败: {e}"}), 502
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/resource/file/<path:filename>", methods=["GET"])
+def api_resource_file(filename):
+    """直接打开/下载已下的资源。"""
+    safe = os.path.basename(filename)
+    return send_from_directory(str(RESOURCES_DIR), safe, as_attachment=True)
+
+
 @app.route("/api/health", methods=["GET"])
 def api_health():
     return jsonify({

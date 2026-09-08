@@ -26,6 +26,7 @@ sessions/
 
 # 运行时下载产物（不能提交 PDF / Cookie / 下载文件）
 papers/
+resources/
 crawler/storage/
 crawler/downloads/
 crawler/logs/

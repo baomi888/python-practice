@@ -416,32 +416,58 @@
   </div>
 </div>
 
-<!-- 📚 论文下载面板（和deleteModal同风格） -->
+<!-- 📚 资源下载面板（通用版：支持 PDF/音乐/电子书/软件/代码/...） -->
 <div id="paperModal" class="modal-overlay hidden">
-  <div class="modal-card" style="width:420px;max-width:92vw">
+  <div class="modal-card" style="width:500px;max-width:94vw">
     <div class="modal-icon" style="background:rgba(59,130,246,0.1);color:#2563eb">
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
     </div>
-    <div class="modal-title">搜论文并下载 PDF</div>
-    <div class="modal-desc" style="margin-bottom:12px">从 arXiv 公开学术库搜索，自动下载到本地 papers/ 目录（完全免费合法）</div>
-    <input id="paperQuery" type="text" placeholder="输入关键词，如 transformer / RAG / deepseek" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid #e5e7eb;background:#fff;color:#1f2937;font-size:14px;outline:none;transition:border-color .15s">
+    <div class="modal-title">搜资源 · 先选再下载</div>
+    <div class="modal-desc" style="margin-bottom:12px">⚠️ 只搜免费/公开/合法资源（arXiv/GitHub/public domain），盗版会被主动过滤</div>
+    <input id="paperQuery" type="text" placeholder="关键词：RAG / transformer pdf / deepseek mp3 / blender 教程" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid #e5e7eb;background:#fff;color:#1f2937;font-size:14px;outline:none;transition:border-color .15s">
     <style>html.dark #paperQuery{background:#1f2937;border-color:#374151;color:#f9fafb}#paperQuery:focus{border-color:#2563eb}</style>
-    <div style="display:flex;gap:10px;margin-top:14px;align-items:center">
-      <label style="font-size:13px;color:#6b7280;display:flex;align-items:center;gap:6px">
-        下 <select id="paperMax" style="padding:4px 8px;border-radius:6px;border:1px solid #e5e7eb;background:#fff;color:#1f2937;font-size:13px">
-          <option value="1">1</option><option value="2">2</option><option value="3" selected>3</option>
-          <option value="5">5</option><option value="10">10</option>
-        </select> 篇
+    <div style="display:flex;gap:10px;margin-top:10px;align-items:center;flex-wrap:wrap">
+      <label style="font-size:12px;color:#6b7280;display:flex;align-items:center;gap:4px">类型
+        <select id="paperType" style="padding:4px 8px;border-radius:6px;border:1px solid #e5e7eb;background:#fff;color:#1f2937;font-size:12px">
+          <option value="all">全部</option>
+          <option value="doc">📄 PDF/文档</option>
+          <option value="ebook">📚 电子书</option>
+          <option value="audio">🎵 音乐</option>
+          <option value="video">🎬 视频</option>
+          <option value="archive">📦 压缩包</option>
+          <option value="app">🔧 软件</option>
+          <option value="python">🐍 Python</option>
+          <option value="text">📝 文本</option>
+        </select>
+      </label>
+      <label style="font-size:12px;color:#6b7280;display:flex;align-items:center;gap:4px">最多
+        <select id="paperMax" style="padding:4px 8px;border-radius:6px;border:1px solid #e5e7eb;background:#fff;color:#1f2937;font-size:12px">
+          <option value="5">5</option>
+          <option value="10" selected>10</option>
+          <option value="15">15</option>
+          <option value="20">20</option>
+        </select> 条
       </label>
       <div style="flex:1"></div>
       <button id="paperCancel" class="modal-btn modal-cancel">取消</button>
-      <button id="paperGo" class="modal-btn modal-confirm" style="background:linear-gradient(135deg,#2563eb,#3b82f6)">搜一下</button>
+      <button id="paperGo" class="modal-btn modal-confirm" style="background:linear-gradient(135deg,#2563eb,#3b82f6)">🔍 搜一下</button>
     </div>
     <!-- 结果区（初始隐藏） -->
-    <div id="paperResult" style="margin-top:14px;display:none;border-top:1px solid #eef0f5;padding-top:12px;max-height:220px;overflow-y:auto">
+    <div id="paperResult" style="margin-top:14px;display:none;border-top:1px solid #eef0f5;padding-top:12px;max-height:340px;overflow-y:auto">
       <!-- JS 动态填充 -->
     </div>
-    <style>html.dark #paperResult{border-top-color:#282d3a}</style>
+    <style>html.dark #paperResult{border-top-color:#282d3a}
+    .res-card{padding:10px 12px;border-radius:10px;border:1.5px solid #eef0f5;background:#fff;margin-bottom:8px;transition:all .15s}
+    .res-card:hover{border-color:#2563eb;background:rgba(59,130,246,0.04)}
+    html.dark .res-card{background:#1f2937;border-color:#374151}
+    html.dark .res-card:hover{border-color:#60a5fa;background:rgba(59,130,246,0.1)}
+    .res-type{display:inline-block;padding:2px 8px;border-radius:10px;background:rgba(59,130,246,0.1);color:#2563eb;font-size:11px;font-weight:500}
+    html.dark .res-type{background:rgba(59,130,246,0.2);color:#60a5fa}
+    .res-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;border:1.5px solid #2563eb;background:#2563eb;color:#fff;font-size:12px;font-weight:500;cursor:pointer;transition:all .12s}
+    .res-btn:hover{background:#1d4ed8}
+    .res-btn.ghost{background:transparent;color:#2563eb}
+    .res-btn.ghost:hover{background:rgba(37,99,235,0.08)}
+    .res-btn:disabled{opacity:0.5;cursor:not-allowed}</style>
   </div>
 </div>
 
@@ -1102,13 +1128,14 @@ document.addEventListener('keydown', (e)=>{
   }
 })();
 
-/* ============ 📚 论文下载面板 ============ */
+/* ============ 📚 通用资源搜索 + 先选再下载 ============ */
 const paperBtn = document.getElementById('paperBtn');
 const paperModal = document.getElementById('paperModal');
 const paperCancel = document.getElementById('paperCancel');
 const paperGo = document.getElementById('paperGo');
 const paperQuery = document.getElementById('paperQuery');
 const paperMax = document.getElementById('paperMax');
+const paperType = document.getElementById('paperType');
 const paperResult = document.getElementById('paperResult');
 
 function showPaperModal(){
@@ -1124,62 +1151,132 @@ function hidePaperModal(){
 paperBtn.addEventListener('click', showPaperModal);
 paperCancel.addEventListener('click', hidePaperModal);
 paperModal.addEventListener('click', (e)=>{ if(e.target===paperModal) hidePaperModal(); });
-
-// Enter 触发搜索
 paperQuery.addEventListener('keydown', (e)=>{ if(e.key==='Enter') paperGo.click(); });
 
-// 核心：搜 + 下
+// 【第一步】搜索：调 /api/resource/search → 展示结果列表
 paperGo.addEventListener('click', async ()=>{
   const q = paperQuery.value.trim();
   if(!q){ paperQuery.focus(); return; }
 
-  const max = parseInt(paperMax.value) || 3;
+  const max = parseInt(paperMax.value) || 10;
+  const type = paperType.value;
   paperGo.disabled = true;
   paperGo.textContent = '🔍 搜索中...';
   paperResult.style.display = 'block';
-  paperResult.innerHTML = '<div style="color:#6b7280;font-size:13px;padding:8px 0">正在搜索 arXiv + 下载 PDF，可能需要 10~30 秒...</div>';
+  paperResult.innerHTML = '<div style="color:#6b7280;font-size:13px;padding:8px 0">搜索 Serper + HEAD 探测文件类型，可能需要 5~20 秒...</div>';
 
   try{
-    const res = await fetch('/api/paper/download', {
+    const res = await fetch('/api/resource/search', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({query: q, max: max})
+      body: JSON.stringify({query: q, filetype: type, max: max})
     });
     const data = await res.json();
 
     if(!res.ok){
-      paperResult.innerHTML = `<div style="color:#ef4444;font-size:13px;padding:8px 0">❌ ${data.error || '下载失败'}</div>`;
+      paperResult.innerHTML = `<div style="color:#ef4444;font-size:13px;padding:8px 0">❌ ${data.error || '搜索失败'}</div>`;
       return;
     }
 
-    // 渲染结果
-    if(!data.files || data.files.length===0){
-      paperResult.innerHTML = `<div style="color:#6b7280;font-size:13px;padding:8px 0">没有下载到任何文件</div>`;
+    // 无结果
+    if(!data.results || data.results.length===0){
+      paperResult.innerHTML = `<div style="color:#6b7280;font-size:13px;padding:8px 0">没找到匹配的结果。试试换关键词 / 选「全部」类型</div>`;
       return;
     }
 
-    let html = `<div style="font-size:13px;color:#6b7280;margin-bottom:10px">✅ 已下载 ${data.downloaded_count} 篇论文（保存到 demo3-web/papers/ 目录）</div>`;
-    html += `<div style="display:flex;flex-direction:column;gap:8px">`;
-    for(const f of data.files){
-      html += `
-        <div style="padding:10px 12px;border-radius:10px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.15);cursor:pointer;transition:all .15s"
-             onmouseover="this.style.background='rgba(59,130,246,0.12)'"
-             onmouseout="this.style.background='rgba(59,130,246,0.06)'"
-             onclick="window.open('/api/paper/file/${encodeURIComponent(f.filename)}','_blank')">
-          <div style="font-size:13px;color:#1f2937;font-weight:500;line-height:1.4">📄 ${escapeHtml(f.title)}</div>
-          <div style="font-size:12px;color:#6b7280;margin-top:4px">${f.arxiv_id} · ${f.size_kb} KB · <span style="color:#2563eb">点击下载 / 预览</span></div>
+    // 渲染结果卡片（每张有独立下载按钮）
+    let h = `<div style="font-size:12px;color:#6b7280;margin-bottom:10px">✅ 搜出 ${data.results.length} 条结果 · 点卡片上的「下载」按钮单个下载（盗版已主动过滤）</div>`;
+    for(let i=0;i<data.results.length;i++){
+      const r = data.results[i];
+      const sizeTxt = r.size_kb ? `${r.size_kb} KB` : '';
+      h += `
+        <div class="res-card" data-idx="${i}">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+            <span class="res-type">${r.filetype_label}</span>
+            <span style="font-size:12px;color:#6b7280">${escapeHtml(r.domain)}</span>
+            ${sizeTxt ? `<span style="font-size:12px;color:#9ca3af">· ${sizeTxt}</span>` : ''}
+          </div>
+          <div style="font-size:13px;color:#1f2937;font-weight:500;line-height:1.4;margin-bottom:4px">${escapeHtml(r.title)}</div>
+          <div style="font-size:12px;color:#6b7280;line-height:1.4;margin-bottom:8px">${escapeHtml(r.snippet)}</div>
+          <div style="display:flex;gap:8px">
+            <button class="res-btn" data-action="download" data-idx="${i}">⬇ 下载</button>
+            <button class="res-btn ghost" data-action="open" data-idx="${i}">🔗 浏览器打开</button>
+          </div>
         </div>`;
     }
-    html += `</div>`;
-    paperResult.innerHTML = html;
+    paperResult.innerHTML = h;
+
+    // 绑定按钮事件（委托到 paperResult）
+    paperResult.onclick = (e)=>{
+      const btn = e.target.closest('[data-action]');
+      if(!btn) return;
+      const idx = parseInt(btn.dataset.idx);
+      if(isNaN(idx) || !data.results[idx]) return;
+      const action = btn.dataset.action;
+      if(action==='open'){
+        window.open(data.results[idx].link, '_blank');
+      } else if(action==='download'){
+        downloadOne(data.results[idx], btn);
+      }
+    };
 
   }catch(err){
     paperResult.innerHTML = `<div style="color:#ef4444;font-size:13px;padding:8px 0">❌ 网络错误：${err.message}</div>`;
   }finally{
     paperGo.disabled = false;
-    paperGo.textContent = '搜一下';
+    paperGo.textContent = '🔍 搜一下';
   }
 });
+
+// 【第二步】下载单个用户选中的资源
+async function downloadOne(resItem, btn){
+  btn.disabled = true;
+  const origTxt = btn.textContent;
+  btn.textContent = '⏳ 下载中...';
+  btn.style.opacity = '0.7';
+
+  try{
+    const resp = await fetch('/api/resource/download', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({url: resItem.link})
+    });
+    const data = await resp.json();
+
+    if(!resp.ok){
+      btn.textContent = '❌ ' + (data.error || '失败');
+      btn.style.color = '#ef4444';
+      btn.style.borderColor = '#ef4444';
+      btn.style.background = 'transparent';
+      setTimeout(()=>{ btn.textContent = origTxt; btn.style.color=''; btn.style.borderColor=''; btn.style.background=''; btn.disabled=false; btn.style.opacity=''; }, 3000);
+      return;
+    }
+
+    // 成功：换成"✅ 已下" + 加一个"打开"按钮
+    btn.textContent = '✅ 已下';
+    btn.style.background = '#059669';
+    btn.style.borderColor = '#059669';
+    btn.style.color = '#fff';
+    btn.disabled = true;
+    btn.style.opacity = '';
+
+    // 加一个"打开文件"按钮
+    const openLocal = document.createElement('button');
+    openLocal.className = 'res-btn ghost';
+    openLocal.textContent = '📂 打开文件';
+    openLocal.style.borderColor = '#059669';
+    openLocal.style.color = '#059669';
+    openLocal.onclick = ()=> window.open('/api/resource/file/' + encodeURIComponent(data.filename), '_blank');
+    btn.parentElement.appendChild(openLocal);
+
+  }catch(err){
+    btn.textContent = '❌ 网络错';
+    btn.style.color = '#ef4444';
+    btn.style.borderColor = '#ef4444';
+    btn.style.background = 'transparent';
+    setTimeout(()=>{ btn.textContent = origTxt; btn.style.color=''; btn.style.borderColor=''; btn.style.background=''; btn.disabled=false; btn.style.opacity=''; }, 3000);
+  }
+}
 </script>
 </body>
 </html>
