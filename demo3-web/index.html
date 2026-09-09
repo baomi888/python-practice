@@ -372,12 +372,8 @@
           </div>
         </div>
         <div id="inputWrap" class="input-wrap">
-          <!-- 输入行：📚(论文) + 📎(附件) + textarea + send-btn -->
+          <!-- 输入行：📎(附件) + textarea + send-btn -->
           <div class="input-row">
-            <!-- 📚 论文下载按钮 -->
-            <button id="paperBtn" class="paper-btn" title="搜论文并下载 PDF">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-            </button>
             <label for="fileInput" class="attach-btn" title="上传附件">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
             </label>
@@ -416,60 +412,20 @@
   </div>
 </div>
 
-<!-- 📚 资源下载面板（通用版：支持 PDF/音乐/电子书/软件/代码/...） -->
-<div id="paperModal" class="modal-overlay hidden">
-  <div class="modal-card" style="width:500px;max-width:94vw">
-    <div class="modal-icon" style="background:rgba(59,130,246,0.1);color:#2563eb">
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-    </div>
-    <div class="modal-title">搜资源 · 先选再下载</div>
-    <div class="modal-desc" style="margin-bottom:12px">⚠️ 只搜免费/公开/合法资源（arXiv/GitHub/public domain），盗版会被主动过滤</div>
-    <input id="paperQuery" type="text" placeholder="关键词：RAG / transformer pdf / deepseek mp3 / blender 教程" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid #e5e7eb;background:#fff;color:#1f2937;font-size:14px;outline:none;transition:border-color .15s">
-    <style>html.dark #paperQuery{background:#1f2937;border-color:#374151;color:#f9fafb}#paperQuery:focus{border-color:#2563eb}</style>
-    <div style="display:flex;gap:10px;margin-top:10px;align-items:center;flex-wrap:wrap">
-      <label style="font-size:12px;color:#6b7280;display:flex;align-items:center;gap:4px">类型
-        <select id="paperType" style="padding:4px 8px;border-radius:6px;border:1px solid #e5e7eb;background:#fff;color:#1f2937;font-size:12px">
-          <option value="all">全部</option>
-          <option value="doc">📄 PDF/文档</option>
-          <option value="ebook">📚 电子书</option>
-          <option value="audio">🎵 音乐</option>
-          <option value="video">🎬 视频</option>
-          <option value="archive">📦 压缩包</option>
-          <option value="app">🔧 软件</option>
-          <option value="python">🐍 Python</option>
-          <option value="text">📝 文本</option>
-        </select>
-      </label>
-      <label style="font-size:12px;color:#6b7280;display:flex;align-items:center;gap:4px">最多
-        <select id="paperMax" style="padding:4px 8px;border-radius:6px;border:1px solid #e5e7eb;background:#fff;color:#1f2937;font-size:12px">
-          <option value="5">5</option>
-          <option value="10" selected>10</option>
-          <option value="15">15</option>
-          <option value="20">20</option>
-        </select> 条
-      </label>
-      <div style="flex:1"></div>
-      <button id="paperCancel" class="modal-btn modal-cancel">取消</button>
-      <button id="paperGo" class="modal-btn modal-confirm" style="background:linear-gradient(135deg,#2563eb,#3b82f6)">🔍 搜一下</button>
-    </div>
-    <!-- 结果区（初始隐藏） -->
-    <div id="paperResult" style="margin-top:14px;display:none;border-top:1px solid #eef0f5;padding-top:12px;max-height:340px;overflow-y:auto">
-      <!-- JS 动态填充 -->
-    </div>
-    <style>html.dark #paperResult{border-top-color:#282d3a}
-    .res-card{padding:10px 12px;border-radius:10px;border:1.5px solid #eef0f5;background:#fff;margin-bottom:8px;transition:all .15s}
-    .res-card:hover{border-color:#2563eb;background:rgba(59,130,246,0.04)}
-    html.dark .res-card{background:#1f2937;border-color:#374151}
-    html.dark .res-card:hover{border-color:#60a5fa;background:rgba(59,130,246,0.1)}
-    .res-type{display:inline-block;padding:2px 8px;border-radius:10px;background:rgba(59,130,246,0.1);color:#2563eb;font-size:11px;font-weight:500}
-    html.dark .res-type{background:rgba(59,130,246,0.2);color:#60a5fa}
-    .res-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;border:1.5px solid #2563eb;background:#2563eb;color:#fff;font-size:12px;font-weight:500;cursor:pointer;transition:all .12s}
-    .res-btn:hover{background:#1d4ed8}
-    .res-btn.ghost{background:transparent;color:#2563eb}
-    .res-btn.ghost:hover{background:rgba(37,99,235,0.08)}
-    .res-btn:disabled{opacity:0.5;cursor:not-allowed}</style>
-  </div>
-</div>
+<!-- 资源卡片全局样式（保留，对话气泡里还要用） -->
+<style>
+.res-card{padding:10px 12px;border-radius:10px;border:1.5px solid #eef0f5;background:#fff;margin-bottom:8px;transition:all .15s}
+.res-card:hover{border-color:#2563eb;background:rgba(59,130,246,0.04)}
+html.dark .res-card{background:#1f2937;border-color:#374151}
+html.dark .res-card:hover{border-color:#60a5fa;background:rgba(59,130,246,0.1)}
+.res-type{display:inline-block;padding:2px 8px;border-radius:10px;background:rgba(59,130,246,0.1);color:#2563eb;font-size:11px;font-weight:500}
+html.dark .res-type{background:rgba(59,130,246,0.2);color:#60a5fa}
+.res-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;border:1.5px solid #2563eb;background:#2563eb;color:#fff;font-size:12px;font-weight:500;cursor:pointer;transition:all .12s}
+.res-btn:hover{background:#1d4ed8}
+.res-btn.ghost{background:transparent;color:#2563eb}
+.res-btn.ghost:hover{background:rgba(37,99,235,0.08)}
+.res-btn:disabled{opacity:0.5;cursor:not-allowed}
+</style>
 
 <script>
 /* ============ 深浅模式 ============ */
@@ -845,13 +801,23 @@ function replaceWithReply(wrap, text, sources, resourceResults){
 
 /* ============ 资源下载卡片（LLM 对话里自动推荐）============ */
 function renderResourceCards(aiDiv, resources){
+  // 分开：真实资源 vs 建议卡
+  const realOnes = resources.filter(r => !r.is_suggestion);
+  const suggOnes = resources.filter(r => r.is_suggestion);
+
+  const header = realOnes.length > 0
+    ? `<div style="font-size:12px;color:#6b7280;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        📦 <b>AI 为你找到 ${realOnes.length} 个可下载资源</b> · 点「⬇ 下载」直接下到本地
+      </div>`
+    : `<div style="font-size:12px;color:#f59e0b;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        ⚠️ <b>没找到匹配的直链文件</b> · 试试下面这些建议 👇
+      </div>`;
+
   const cardHtml = `
   <div style="margin-top:14px;border-top:1px dashed #e5e7eb;padding-top:10px">
-    <div style="font-size:12px;color:#6b7280;margin-bottom:8px;display:flex;align-items:center;gap:6px">
-      📦 <b>AI 为你找到 ${resources.length} 个可下载资源</b> · 点「⬇ 下载」直接下到本地
-    </div>
+    ${header}
     <div style="display:flex;flex-direction:column;gap:6px">
-      ${resources.map((r,i) => {
+      ${realOnes.map((r,i) => {
         const score = r.score || 50;
         let scoreColor = '#10b981', scoreLabel = '✅ 可信';
         if(score < 40){ scoreColor = '#ef4444'; scoreLabel = '❌ 低质'; }
@@ -859,7 +825,7 @@ function renderResourceCards(aiDiv, resources){
         else if(score >= 80){ scoreLabel = '⭐ 官方'; }
         const sizeTxt = r.size_kb ? `${r.size_kb >= 1024 ? (r.size_kb/1024).toFixed(1)+' MB' : r.size_kb+' KB'}` : '未知大小';
         return `
-        <div class="res-card" style="padding:8px 12px;border-radius:10px;border:1.5px solid #eef0f5;background:#fff;transition:all .15s;display:flex;align-items:center;gap:10px">
+        <div class="res-card" data-kind="resource" style="padding:8px 12px;border-radius:10px;border:1.5px solid #eef0f5;background:#fff;transition:all .15s;display:flex;align-items:center;gap:10px">
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;color:#1f2937;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(r.title)}</div>
             <div style="font-size:11px;color:#9ca3af;margin-top:2px;display:flex;align-items:center;gap:8px">
@@ -873,6 +839,12 @@ function renderResourceCards(aiDiv, resources){
           <button data-ridx="${i}" data-action="open" style="padding:4px 8px;font-size:11px;flex-shrink:0;background:transparent;border:1px solid #d1d5db;color:#6b7280;border-radius:6px;cursor:pointer">🔗</button>
         </div>`;
       }).join('')}
+      ${suggOnes.map((r,i) => `
+        <div style="padding:10px 12px;border-radius:10px;border:1.5px dashed #e5e7eb;background:#fafafa;margin-bottom:6px">
+          <div style="font-size:13px;color:#374151;font-weight:500;margin-bottom:3px">💡 ${escapeHtml(r.title)}</div>
+          <div style="font-size:12px;color:#6b7280;line-height:1.5">${escapeHtml(r.snippet || '')}</div>
+        </div>
+      `).join('')}
     </div>
   </div>`;
   aiDiv.insertAdjacentHTML('beforeend', cardHtml);
@@ -881,9 +853,15 @@ function renderResourceCards(aiDiv, resources){
   aiDiv.onclick = (e) => {
     const dlBtn = e.target.closest('.res-btn');
     const openBtn = e.target.closest('[data-action="open"]');
-    const ridx = parseInt(e.target.dataset.ridx || (e.target.parentElement && e.target.parentElement.dataset && e.target.parentElement.dataset.ridx));
+    // 从 data-ridx 取 index（注意：只在 realOnes 上有意义，suggestion 卡跳过）
+    let ridx = parseInt(e.target.dataset.ridx);
+    if(isNaN(ridx)){
+      // 尝试 parent
+      const parentBtn = e.target.parentElement && e.target.parentElement.dataset ? e.target.parentElement.dataset.ridx : null;
+      if(parentBtn) ridx = parseInt(parentBtn);
+    }
     if(isNaN(ridx)) return;
-    const resItem = resources[ridx];
+    const resItem = realOnes[ridx];
     if(!resItem) return;
 
     if(e.target.dataset.action === 'open' || (openBtn && !dlBtn)){
@@ -1131,6 +1109,7 @@ async function sendMessage(text){
   if(!text.trim()||isGenerating) return;
   if(!currentSessionId){ await newSession(); }
   _retryUserMsg = text.trim();
+  addToSearchHistory(text.trim());  // 🔍 存搜索历史
   hideEmpty();
   // 用户气泡里渲染图片缩略图 + 文件卡片
   const filesToSend = pendingFiles.slice();
@@ -1217,124 +1196,138 @@ document.addEventListener('keydown', (e)=>{
   }
 })();
 
-/* ============ 📚 通用资源搜索 + 先选再下载 ============ */
-const paperBtn = document.getElementById('paperBtn');
-const paperModal = document.getElementById('paperModal');
-const paperCancel = document.getElementById('paperCancel');
-const paperGo = document.getElementById('paperGo');
-const paperQuery = document.getElementById('paperQuery');
-const paperMax = document.getElementById('paperMax');
-const paperType = document.getElementById('paperType');
-const paperResult = document.getElementById('paperResult');
+/* ============ 🔍 搜索历史（localStorage，输入框 focus 时下拉） ============ */
+const SEARCH_HISTORY_KEY = 'baomi_search_history_v2';
+const HISTORY_MAX = 15;
 
-function showPaperModal(){
-  paperModal.classList.remove('hidden');
-  paperQuery.focus();
+function getSearchHistory(){
+  try{ return JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY) || '[]'); }
+  catch{ return []; }
 }
-function hidePaperModal(){
-  paperModal.classList.add('hidden');
-  paperResult.style.display = 'none';
-  paperResult.innerHTML = '';
+function saveSearchHistory(list){
+  localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(list.slice(0, HISTORY_MAX)));
+}
+function addToSearchHistory(query){
+  const q = query.trim();
+  if(!q) return;
+  // 只存搜索/资源相关的，不存闲聊
+  const searchKw = ['下载','下','找','搜','查','给我','哪里','在哪','哪里有','在哪找','软件','APP','APK','EXE','工具','PDF','论文','文献','教程','资料','电子书','音乐','视频','电影','豆包','deepseek','kimi','glm','claude','github'];
+  const isSearch = searchKw.some(k => q.toLowerCase().includes(k.toLowerCase()));
+  if(!isSearch && q.length > 40) return;  // 太长的闲聊也不存
+  let list = getSearchHistory();
+  list = list.filter(x => x !== q);  // 去重
+  list.unshift(q);
+  saveSearchHistory(list);
+}
+function removeFromSearchHistory(query){
+  let list = getSearchHistory().filter(x => x !== query);
+  saveSearchHistory(list);
+}
+function clearSearchHistory(){
+  saveSearchHistory([]);
+  hideHistoryDropdown();
 }
 
-paperBtn.addEventListener('click', showPaperModal);
-paperCancel.addEventListener('click', hidePaperModal);
-paperModal.addEventListener('click', (e)=>{ if(e.target===paperModal) hidePaperModal(); });
-paperQuery.addEventListener('keydown', (e)=>{ if(e.key==='Enter') paperGo.click(); });
-
-// 【第一步】搜索：调 /api/resource/search → 展示结果列表
-paperGo.addEventListener('click', async ()=>{
-  const q = paperQuery.value.trim();
-  if(!q){ paperQuery.focus(); return; }
-
-  const max = parseInt(paperMax.value) || 10;
-  const type = paperType.value;
-  paperGo.disabled = true;
-  paperGo.textContent = '🔍 搜索中...';
-  paperResult.style.display = 'block';
-  paperResult.innerHTML = '<div style="color:#6b7280;font-size:13px;padding:8px 0">搜索 Serper + HEAD 探测文件类型，可能需要 5~20 秒...</div>';
-
-  try{
-    const res = await fetch('/api/resource/search', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({query: q, filetype: type, max: max})
-    });
-    const data = await res.json();
-
-    if(!res.ok){
-      paperResult.innerHTML = `<div style="color:#ef4444;font-size:13px;padding:8px 0">❌ ${data.error || '搜索失败'}</div>`;
-      return;
-    }
-
-    // 无结果
-    if(!data.results || data.results.length===0){
-      paperResult.innerHTML = `<div style="color:#6b7280;font-size:13px;padding:8px 0">没找到匹配的结果。试试换关键词 / 选「全部」类型</div>`;
-      return;
-    }
-
-    // 渲染结果卡片（每张有独立下载按钮 + 信誉分徽章 + 可疑灰化）
-    let h = `<div style="font-size:12px;color:#6b7280;margin-bottom:10px">✅ 搜出 ${data.results.length} 条结果 · 信誉分高的排前面 · 盗版/假 APK 已过滤</div>`;
-    for(let i=0;i<data.results.length;i++){
-      const r = data.results[i];
-      const sizeTxt = r.size_kb ? `${r.size_kb} KB` : '';
-      const domainShow = r.domain_tag ? r.domain_tag : r.domain;
-      const isWeb = r.filetype_cat === 'web';
-      const susp = r.suspicious;
-      const score = r.score || 50;
-      // 信誉分徽章颜色
-      let scoreColor = '#10b981';  // 绿 = 好
-      let scoreBg = 'rgba(16,185,129,0.1)';
-      if(score < 40){ scoreColor = '#ef4444'; scoreBg = 'rgba(239,68,68,0.1)'; }
-      else if(score < 60){ scoreColor = '#f59e0b'; scoreBg = 'rgba(245,158,11,0.1)'; }
-
-      h += `
-        <div class="res-card" data-idx="${i}" style="
-          ${isWeb?'border-style:dashed':''}
-          ${susp?'opacity:0.65;background:#fafafa':''}
-        ">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
-            <span class="res-type" style="${isWeb?'background:rgba(107,114,128,0.1);color:#6b7280':''}">${r.filetype_label}</span>
-            <span style="font-size:12px;color:#6b7280">${escapeHtml(domainShow)}</span>
-            ${sizeTxt ? `<span style="font-size:12px;color:#9ca3af">· ${sizeTxt}</span>` : ''}
-            <span style="margin-left:auto;font-size:11px;padding:1px 7px;border-radius:8px;background:${scoreBg};color:${scoreColor};font-weight:600">
-              ${score >= 80 ? '⭐ 官方' : score >= 60 ? '✅ 可信' : score >= 40 ? '⚠️ 一般' : '❌ 低质'}
-            </span>
-            ${isWeb ? `<span style="font-size:11px;color:#9ca3af">· 网页型</span>` : ''}
-          </div>
-          <div style="font-size:13px;color:${susp?'#9ca3af':'#1f2937'};font-weight:500;line-height:1.4;margin-bottom:4px">${escapeHtml(r.title)}</div>
-          ${r.snippet ? `<div style="font-size:12px;color:${susp?'#d1d5db':'#6b7280'};line-height:1.4;margin-bottom:8px">${escapeHtml(r.snippet)}</div>` : ''}
-          <div style="display:flex;gap:8px">
-            ${isWeb 
-              ? `<button class="res-btn ghost" data-action="open" data-idx="${i}" style="border-color:#6b7280;color:#6b7280">🔗 浏览器打开</button>`
-              : `<button class="res-btn" data-action="download" data-idx="${i}">⬇ 下载</button>
-                 <button class="res-btn ghost" data-action="open" data-idx="${i}">🔗 浏览器打开</button>`
-            }
-          </div>
-        </div>`;
-    }
-    paperResult.innerHTML = h;
-
-    // 绑定按钮事件（委托到 paperResult）
-    paperResult.onclick = (e)=>{
-      const btn = e.target.closest('[data-action]');
-      if(!btn) return;
-      const idx = parseInt(btn.dataset.idx);
-      if(isNaN(idx) || !data.results[idx]) return;
-      const action = btn.dataset.action;
-      if(action==='open'){
-        window.open(data.results[idx].link, '_blank');
-      } else if(action==='download'){
-        downloadOne(data.results[idx], btn);
-      }
-    };
-
-  }catch(err){
-    paperResult.innerHTML = `<div style="color:#ef4444;font-size:13px;padding:8px 0">❌ 网络错误：${err.message}</div>`;
-  }finally{
-    paperGo.disabled = false;
-    paperGo.textContent = '🔍 搜一下';
+/* 搜索历史下拉 DOM */
+let historyDropdown = null;
+function showHistoryDropdown(){
+  const list = getSearchHistory();
+  if(list.length === 0){ hideHistoryDropdown(); return; }
+  if(!historyDropdown){
+    historyDropdown = document.createElement('div');
+    historyDropdown.id = 'historyDropdown';
+    historyDropdown.style.cssText = 'position:absolute;bottom:100%;left:0;right:0;margin-bottom:6px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.1);max-height:280px;overflow-y:auto;z-index:999;';
+    const wrap = document.getElementById('inputWrap');
+    wrap.style.position = 'relative';
+    wrap.appendChild(historyDropdown);
+    // 外部点击关闭
+    setTimeout(()=>{
+      document.addEventListener('click', onDocClickCloseHistory);
+    }, 50);
   }
+  historyDropdown.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #f3f4f6">
+      <span style="font-size:12px;color:#6b7280;font-weight:500">🕐 搜索历史</span>
+      <span style="font-size:11px;color:#ef4444;cursor:pointer;padding:2px 6px;border-radius:4px" id="clearHistoryBtn">清空</span>
+    </div>
+    ${list.map((q,i)=>`
+      <div class="history-item" data-q="${escapeHtml(q)}" style="
+        padding:8px 12px;font-size:13px;color:#1f2937;cursor:pointer;display:flex;align-items:center;gap:8px;
+        ${i<list.length-1?'border-bottom:1px solid #f9fafb':''}
+      ">
+        <span style="font-size:12px;color:#9ca3af">🔍</span>
+        <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(q)}</span>
+        <span class="hist-del" data-q="${escapeHtml(q)}" style="font-size:14px;color:#d1d5db;padding:0 4px;cursor:pointer;flex-shrink:0">✕</span>
+      </div>
+    `).join('')}
+  `;
+  htmlDarkWorkaround();
+  historyDropdown.style.display = 'block';
+}
+function hideHistoryDropdown(){
+  if(historyDropdown){ historyDropdown.style.display = 'none'; }
+}
+function htmlDarkWorkaround(){
+  if(!historyDropdown) return;
+  if(html.classList.contains('dark')){
+    historyDropdown.style.background = '#1f2937';
+    historyDropdown.style.borderColor = '#374151';
+    historyDropdown.querySelectorAll('.history-item').forEach(el => {
+      el.style.color = '#f3f4f6';
+      el.querySelectorAll('.hist-del').forEach(d => d.style.color = '#6b7280');
+    });
+    const label = historyDropdown.querySelector('span[style*="6b7280"]');
+    if(label) label.style.color = '#9ca3af';
+  }
+}
+function onDocClickCloseHistory(e){
+  if(historyDropdown && !historyDropdown.contains(e.target) && e.target !== document.getElementById('messageInput')){
+    hideHistoryDropdown();
+    document.removeEventListener('click', onDocClickCloseHistory);
+  }
+}
+
+// 历史下拉事件委托
+document.addEventListener('click', (e)=>{
+  const item = e.target.closest('.history-item');
+  const del = e.target.closest('.hist-del');
+  const clear = e.target.id === 'clearHistoryBtn';
+  if(del){
+    e.stopPropagation();
+    removeFromSearchHistory(del.dataset.q);
+    showHistoryDropdown();
+  } else if(clear){
+    clearSearchHistory();
+  } else if(item){
+    const q = item.dataset.q;
+    const input = document.getElementById('messageInput');
+    input.value = q;
+    input.focus();
+    hideHistoryDropdown();
+    autoGrow(input);
+  }
+});
+
+// 输入框 focus 时展示历史
+document.getElementById('messageInput').addEventListener('focus', ()=>{
+  setTimeout(showHistoryDropdown, 100);
+});
+document.getElementById('messageInput').addEventListener('keydown', (e)=>{
+  if(e.key === 'Escape'){ hideHistoryDropdown(); }
+});
+// 输入时实时过滤历史
+document.getElementById('messageInput').addEventListener('input', ()=>{
+  const v = document.getElementById('messageInput').value.trim().toLowerCase();
+  if(!v){ showHistoryDropdown(); return; }
+  if(!historyDropdown){ return; }  // 未显示就不做过滤
+  document.querySelectorAll('.history-item').forEach(el => {
+    const q = (el.dataset.q || '').toLowerCase();
+    el.style.display = q.includes(v) ? '' : 'none';
+  });
+});
+// 失焦时延迟关闭（让点击历史项有机会触发）
+document.getElementById('messageInput').addEventListener('blur', ()=>{
+  setTimeout(hideHistoryDropdown, 200);
 });
 
 // 【第二步】下载单个用户选中的资源

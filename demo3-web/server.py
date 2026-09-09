@@ -657,7 +657,108 @@ def _run_resource_search(query: str, max_results: int = 6) -> list:
 
     # 信誉分排序
     results.sort(key=lambda x: x["score"], reverse=True)
-    return results[:max_results]
+
+    # ===== 结果太少 → 自动 fallback：换关键词再搜一轮 =====
+    if len(results) < 3:
+        fallback_queries = _build_fallback_queries(query)
+        for fb_q in fallback_queries:
+            if fb_q == query:
+                continue
+            fb_extra = _run_resource_search(fb_q, max_results=3)
+            # 去重（按 link）
+            existing_links = {r["link"] for r in results}
+            for fb in fb_extra:
+                if fb["link"] not in existing_links:
+                    results.append(fb)
+            if len(results) >= 5:
+                break
+        results.sort(key=lambda x: x["score"], reverse=True)
+
+    # 截断 + 加上 fallback_suggestions（给前端和 LLM 显示替代关键词）
+    final_results = results[:max_results]
+    if len(final_results) < 3:
+        # 结果还是少 → 告诉用户"试试换这些关键词"
+        final_results.extend(_build_suggestion_cards(query, fallback_queries if 'fallback_queries' in dir() else []))
+    return final_results
+
+
+# ========== 资源查找 fallback 辅助 ==========
+
+def _build_fallback_queries(query: str) -> list:
+    """根据原始 query 生成 2~3 个替代关键词（英文 / 换后缀 / 加 github 等）。"""
+    q = query.strip()
+    out = []
+
+    # 1. 去掉"下载/下一个/给我/哪里有/在哪找"等指令词，保留核心名词
+    strip_words = ["下载", "下一个", "给我", "帮我", "找一下", "搜一下", "查一下",
+                   "哪里有", "在哪找", "哪里下载", "去哪下", "在哪下载", "下", "找", "搜", "查"]
+    core = q
+    for w in strip_words:
+        core = core.replace(w, " ").strip()
+    if core and core != q:
+        out.append(core)
+
+    # 2. 加英文辅助后缀
+    english_helpers = ["github", "official", "官网", "下载", "download", "release"]
+    for h in english_helpers[:3]:
+        fb = f"{core} {h}".strip()
+        if fb and fb not in out:
+            out.append(fb)
+
+    # 3. 如果是中文，加英文转拼音可能不靠谱，直接保留原 query + filetype:pdf 兜底
+    out.append(f"{core} filetype:pdf" if core else f"{q} filetype:pdf")
+    out.append(f"{core} site:github.com" if core else f"{q} site:github.com")
+
+    # 去重 + 去空
+    seen = set()
+    clean = []
+    for x in out:
+        x = x.strip()
+        if x and x not in seen and x != q:
+            seen.add(x)
+            clean.append(x)
+    return clean[:4]
+
+
+def _build_suggestion_cards(original_query: str, fallback_queries: list) -> list:
+    """当真的找不到结果时，生成「建议卡片」——前端渲染成灰色提示卡。"""
+    cards = []
+    # 通用建议
+    tips = [
+        ("换关键词试试", f"比如：{', '.join(fallback_queries[:3])}" if fallback_queries else "试试更短的关键词，或去掉「下载/给我」等指令词"),
+        ("换类型试试", "如果要软件 → 加 site:github.com；要论文 → 加 filetype:pdf"),
+        ("用英文搜", f'"{_to_ascii_if_chinese(original_query)}" 英文关键词在 Google 上结果通常更多'),
+        ("直接说在对话框", "把需求说完整：「帮我下载豆包 Windows 客户端」比「下豆包」效果好"),
+    ]
+    for title, desc in tips:
+        cards.append({
+            "title": title,
+            "snippet": desc,
+            "domain": "",
+            "link": "",
+            "filetype_label": "💡 建议",
+            "filetype_cat": "suggestion",  # 前端识别这个 type → 渲染成灰色提示卡
+            "size_kb": None,
+            "score": 0,
+            "resource": False,
+            "is_suggestion": True,
+        })
+    return cards
+
+
+def _to_ascii_if_chinese(text: str) -> str:
+    """粗转中文为 ASCII 辅助（简单拆分，真要拼音用 pypinyin 但我们不引入新依赖）。"""
+    has_chinese = any('\u4e00' <= c <= '\u9fff' for c in text)
+    if not has_chinese:
+        return text
+    # 简单策略：把中文词用空格分割，保留英文部分
+    result = ""
+    for c in text:
+        if '\u4e00' <= c <= '\u9fff':
+            result += " "
+        else:
+            result += c
+    return result.strip() or text
 
 
 def _format_resource_results_for_llm(user_query: str, resource_results: list) -> str:
