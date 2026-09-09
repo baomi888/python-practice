@@ -84,18 +84,7 @@
     #pigAvatar{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#fdf2f8,#fce7f3)}
     html.dark #pigAvatar{background:linear-gradient(135deg,#4a2d3f,#2d1f2e)}
 
-    /* ====== 联网搜索 Toggle 开关 ====== */
-    .web-search-toggle{display:inline-flex;align-items:center;gap:8px;padding:5px 12px 5px 5px;border-radius:20px;font-size:12px;cursor:pointer;user-select:none;transition:all .2s;border:1px solid #e5e7eb;background:#ffffff;color:#9ca3af}
-    .web-search-toggle:hover{border-color:#fbcfe8}
-    html.dark .web-search-toggle{background:#1a1b28;border-color:#2d2e3e;color:#9ca3af}
-    .web-search-toggle.active{background:rgba(236,72,153,0.08);border-color:#fbcfe8;color:#be185d}
-    html.dark .web-search-toggle.active{background:rgba(236,72,153,0.15);border-color:#f9a8d4;color:#f9a8d4}
-    .ws-switch{width:26px;height:14px;border-radius:7px;background:#e5e7eb;position:relative;transition:background .2s;flex-shrink:0}
-    html.dark .ws-switch{background:#2d2e3e}
-    .ws-switch::after{content:'';position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,0.2)}
-    .web-search-toggle.active .ws-switch{background:#ec4899}
-    .web-search-toggle.active .ws-switch::after{left:14px}
-    .ws-label{display:inline-flex;align-items:center;gap:4px;font-weight:500}
+    /* ====== 搜索历史下拉 ====== */
 
     /* ====== 按钮 ====== */
     .btn-newchat{display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border-radius:12px;background:linear-gradient(135deg,#ec4899,#f472b6);color:#fff;font-size:14px;font-weight:500;cursor:pointer;border:none;box-shadow:0 2px 8px rgba(236,72,153,0.3);transition:all .2s}
@@ -318,15 +307,7 @@
       <div class="flex items-center gap-3">
         <h2 id="chatTitle" class="text-[15px] font-semibold text-gray-800 dark:text-gray-100">新对话</h2>
       </div>
-      <div class="flex items-center gap-2">
-        <button id="webSearchToggle" class="web-search-toggle" type="button" role="switch" aria-checked="false">
-          <span class="ws-switch"></span>
-          <span class="ws-label">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="16.61" y1="16.61" x2="21" y2="21"/></svg>
-            <span id="searchLabel">联网搜索</span>
-          </span>
-        </button>
-      </div>
+      <div class="flex items-center gap-2"></div>
     </div>
 
     <div id="chatScroll" class="chat-scroll flex-1 overflow-y-auto">
@@ -442,21 +423,6 @@ applyTheme(saved);
 document.getElementById('themeBtn').addEventListener('click', ()=>{
   const next = html.classList.contains('dark')?'light':'dark';
   applyTheme(next); localStorage.setItem('theme', next);
-});
-
-/* ============ 联网搜索 Toggle（会话级记忆 localStorage） ============ */
-let webSearchEnabled = localStorage.getItem('webSearchEnabled') === '1';
-(function applyWsUI(){
-  document.getElementById('webSearchToggle').classList.toggle('active', webSearchEnabled);
-  document.getElementById('webSearchToggle').setAttribute('aria-checked', webSearchEnabled ? 'true' : 'false');
-  document.getElementById('searchLabel').textContent = webSearchEnabled ? '已联网' : '联网搜索';
-})();
-document.getElementById('webSearchToggle').addEventListener('click', ()=>{
-  webSearchEnabled = !webSearchEnabled;
-  localStorage.setItem('webSearchEnabled', webSearchEnabled ? '1' : '0');
-  document.getElementById('webSearchToggle').classList.toggle('active', webSearchEnabled);
-  document.getElementById('webSearchToggle').setAttribute('aria-checked', webSearchEnabled ? 'true' : 'false');
-  document.getElementById('searchLabel').textContent = webSearchEnabled ? '已联网' : '联网搜索';
 });
 
 /* ============ 会话状态 ============ */
@@ -684,8 +650,7 @@ function renderAiLoading(){
   const ml = document.getElementById('messageList');
   const wrap = document.createElement('div');
   wrap.className = 'msg-wrap flex gap-3';
-  const loadingText = webSearchEnabled ? '🔍正在检索网页，生成回答中…' : '正在生成回答…';
-  wrap.innerHTML = `<img src="小猪.jpg" class="avatar" style="width:36px;height:36px;border-radius:10px;object-fit:contain;object-position:center;background:#fff;padding:2px;box-sizing:border-box"><div class="msg-ai md"><div class="dot-pulse"><span></span><span></span><span></span></div><div class="loading-text" style="font-size:12px;color:#9ca3af;margin-top:8px;">${loadingText}</div></div>`;
+  wrap.innerHTML = `<img src="小猪.jpg" class="avatar" style="width:36px;height:36px;border-radius:10px;object-fit:contain;object-position:center;background:#fff;padding:2px;box-sizing:border-box"><div class="msg-ai md"><div class="dot-pulse"><span></span><span></span><span></span></div><div class="loading-text" style="font-size:12px;color:#9ca3af;margin-top:8px;">AI 正在思考中…</div></div>`;
   ml.appendChild(wrap); scrollToBottom();
   return wrap;
 }
@@ -1129,7 +1094,7 @@ async function sendMessage(text){
       body:JSON.stringify({
         session_id:currentSessionId,
         message:text.trim(),
-        web_search:webSearchEnabled,
+        web_search:false,  // 🔑 后端 AI 自动判断是否联网，不再由前端 toggle
         files: filesToSend,
       }),
       signal:abortController.signal,
