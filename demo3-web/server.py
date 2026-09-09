@@ -115,7 +115,9 @@ def do_web_search(query: str, num_results: int = 5) -> list:
         resp = requests.post(
             SERPER_URL,
             headers={"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"},
-            data=json.dumps({"q": query, "num": num_results}),
+            data=json.dumps({"q": query, "num": num_results,
+                             "gl": "cn", "hl": "zh-cn",  # 🔑 关键：中国地区 + 中文语言
+                             "autocorrect": True}),
             timeout=10,
         )
         resp.raise_for_status()
@@ -586,7 +588,7 @@ def _run_resource_search(query: str, max_results: int = 6) -> list:
 
     def _serper_one(q, engine="google"):
         try:
-            payload = {"q": q, "num": 6}
+            payload = {"q": q, "num": 6, "gl": "cn", "hl": "zh-cn", "autocorrect": True}
             if engine != "google":
                 payload["engine"] = engine
             resp = requests.post(
@@ -1132,12 +1134,37 @@ def _classify_domain(url: str) -> str:
     return " · ".join(tags)
 
 
+# 浏览器自身下载页（用户搜软件时 Serper 老把这些排第一，浪费位置）
+BROWSER_DOWNLOAD_PAGES = (
+    "google.com/chrome", "www.google.com/chrome",
+    "microsoft.com/edge", "www.microsoft.com/edge",
+    "firefox.com/download", "www.mozilla.org/firefox",
+    "apple.com/safari",
+    "opera.com/download",
+    "brave.com/download",
+    "vivaldi.com/download",
+    "maxthon.com",
+    # Google 主页（用户搜软件时不应弹 google.com 主页）
+    "google.com/?", "google.com/webapp", "google.com/intl",
+    "www.google.com/?", "www.google.com/webapp", "www.google.com/intl",
+)
+
+
 def _is_legit_resource(url: str, snippet: str = "") -> bool:
-    """只拦硬盗版站，正常网站放开。"""
+    """只拦硬盗版站 + 浏览器下载页 + Google 主页。"""
     hay = (url + " " + snippet).lower()
     for bad in PIRACY_BLOCKLIST:
         if bad in hay:
             return False
+    # 浏览器下载页过滤
+    low = url.lower()
+    for bp in BROWSER_DOWNLOAD_PAGES:
+        if bp in low:
+            return False
+    # google.com 空主页（不是 google.com/search/xxx）
+    if low in ("https://google.com", "http://google.com",
+               "https://www.google.com", "http://www.google.com"):
+        return False
     return True
 
 
@@ -1200,7 +1227,7 @@ def api_resource_search():
 
     def _serper_one(q, engine="google"):
         try:
-            payload = {"q": q, "num": 8}
+            payload = {"q": q, "num": 8, "gl": "cn", "hl": "zh-cn", "autocorrect": True}
             if engine != "google":
                 payload["engine"] = engine  # bing / duckduckgo / youtube
             resp = requests.post(
