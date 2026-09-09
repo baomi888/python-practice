@@ -1,389 +1,339 @@
 # Baomi Agent — DeepSeek 智能体 Web 应用
 
-基于 DeepSeek 大模型 API 的 **现代 AI Agent 对话 Web 应用**，Flask 后端 + 原生 HTML/Tailwind/JS 前端。复用 `demo3` 核心客户端逻辑，在其基础上扩展了多会话管理、联网搜索、Kimi 风格工具栏、文件上传、参考来源结构化、多模态图片理解等完整的 Web 能力。
+> 豆包风格的 **AI Agent + 联网搜索 + 资源下载** 一体化 Web 应用
+> Flask 后端 + 原生 HTML/JS 前端 + DeepSeek 大模型
 
-> 🔁 本项目是 `demo3`（控制台版）的 Web 升级版本，**核心业务代码（DeepSeekClient）完全复用，不做任何修改**。
+---
 
-## ✨ 功能清单
+## ✨ 功能亮点
 
-### 🧠 核心能力（来自 demo3）
-- 🔐 `.env` 读取 API 密钥，**零硬编码**
-- 💬 多轮对话，自动维护 `messages` 上下文历史
-- 🔁 失败自动重试 2 次，间隔 1 秒
-- 🛡️ 分类异常处理：认证失败 / 网络断开 / 请求超时 / 服务端错误
-- 🌐 **联网搜索**：Serper API 搜最新网页 → 注入 prompt → DeepSeek 总结
+### 🧠 AI 对话
+- ✅ DeepSeek 大模型（`deepseek-v4-flash`）+ 多轮上下文
+- ✅ **联网搜索自动触发**：AI 自己判断是否需要搜，不用手动开 toggle
+- ✅ **LLM 驱动资源搜索/下载**：说"帮我下豆包"→ 自动搜 + 自动推荐 + 一键下载
+- ✅ 多模态图片理解：上传图片后直接问问题
+- ✅ 多会话管理（创建/切换/重命名/删除，文件持久化）
+- ✅ 深浅模式（一键切换 + 持久化）
+- ✅ Kimi 风格工具栏（复制/重试/分享/点赞/点踩）
 
-### 🖥️ Web 增强（demo3 没有的）
+### 🔎 联网搜索（中国本地化）
+- ✅ **Serper API + Playwright 双阶段**：Google/Bing 搜索 → Playwright 抓正文
+- ✅ **中国地区强制** `gl=cn, hl=zh-cn`（不再给你搜出 Chrome 下载页）
+- ✅ **浏览器下载页 + Google 主页自动过滤**
+- ✅ 可信度评分（官方源+20 GitHub+25 垃圾站-15 假文件直接丢）
+- ✅ 三路 fallback 关键词建议（搜不到换词自动再搜）
 
-| 模块 | 功能 |
-|------|------|
-| **多会话管理** | 创建/切换/重命名/删除会话，`sessions/*.json` 持久化，刷新不丢 |
-| **深浅模式** | 一键切换 + localStorage 持久化 + 全组件自动适配 |
-| **Kimi 风格工具栏** | AI 消息 hover 浮现：**复制 / 重试 / 分享 / 点赞 / 点踩** |
-| **Markdown 渲染** | 零依赖自写渲染器：代码块 / 行内代码 / 标题 / 列表 / 加粗 / 引用 / 链接 |
-| **代码块增强** | Prism.js 语法高亮 + 头部（语言标签 + 复制按钮）+ XSS escapeHtml 防护 |
-| **文件上传** | 📎 支持 图片（base64 多模态理解）/ txt / md / pdf（PyPDF2 提取文本）；豆包风格预览 |
-| **图片多模态** | 自动切换 vision 模型；上传图片后直接问"这张图里的人帅吗" |
-| **参考来源结构化** | 底部折叠组件（原生 `<details>`）+ 上角标¹²³可点击跳转 + scrollIntoView 高亮 |
-| **联网搜索 Toggle** | 滑块开关 + localStorage 会话级记忆；关闭即跳过爬虫 |
-| **Loading 文案区分** | 联网时「🔍正在检索网页，生成回答中…」/ 普通「正在生成回答…」 |
-| **自定义删除弹窗** | 毛玻璃 modal（非原生 confirm）+ ESC/点遮罩关闭 |
-| **输入体验** | 自动增高（最多 5 行）+ Enter 发送 / Shift+Enter 换行 + 聚焦发光 |
-| **停止生成** | 生成中发送按钮变红色 + `AbortController` 中断 |
-| **响应式** | `<768px` 移动端隐藏侧边栏 |
-| **Toast 提示** | 复制/点赞/重试等操作反馈 |
+### 📥 资源搜索 / 下载
+- ✅ **对话式触发**（推荐）：直接说"帮我下载豆包 Windows 客户端"
+- ✅ **搜索历史下拉**：输入框 focus 自动弹出历史（localStorage 存，去重最多 15 条）
+- ✅ 结果按信誉分排序（⭐官方 / ✅可信 / ⚠️一般 / ❌低质）
+- ✅ 直链文件一键下载 → 按钮变绿 + 📂打开本地文件
+- ✅ 找不到时给**具体替代建议卡**（换关键词 + 换类型 + 用英文搜）
+- ✅ 支持 9 种类型：📄PDF / 📚电子书 / 🎵音乐 / 🎬视频 / 📦压缩包 / 🔧软件 / 🐍Python / 📝文本
 
-### 🎨 UI 设计规范
-- 粉色主题（`#ec4899` → `#f472b6` 渐变）
-- **无"我"头像标签**，靠气泡颜色区分（粉色=user，白色卡片=AI）
-- 所有气泡 `max-width: 85%`，避免大屏无限拉长
-- AI 工具栏默认隐藏，hover 气泡才浮现
-- 上传图片独立一行显示（不包在粉色气泡里），点击可全屏预览
+### 🚀 一键启动
+```
+双击 start.bat → 自动杀旧进程 → 启 Flask → 自动开浏览器 → 完事
+双击 stop.bat → 一键停止
+```
+
+---
 
 ## 📦 项目结构
 
 ```
 demo3-web/
-├── server.py          # Flask 后端：路由 + API + 会话管理 + 文件上传解析 + 联网搜索
-├── client.py          # DeepSeekClient（复用 demo3 核心 + chat_with_override + vision 支持）
-├── index.html         # 原生 HTML + Tailwind v3 + 原生 JS 前端（全部 UI 逻辑）
-├── app.py             # Flask 启动入口
-├── pig-avatar.png     # AI 绘制的小猪头像（备用）
-├── 小猪.jpg           # 用户提供的手绘涂鸦风小猪头像
-├── sessions/          # 会话持久化目录（运行时自动创建，已 .gitignore）
-│   └── *.json
-├── requirements.txt   # 依赖清单（Flask + requests + python-dotenv + PyPDF2）
-├── .env.example       # 环境变量模板
-├── .gitignore         # Git 忽略规则（.env、sessions/、__pycache__）
-└── README.md          # 本文档
+├── server.py              # Flask 后端（路由 + API + 会话 + 搜索 + 下载）
+├── client.py              # DeepSeekClient（API 调用 + 重试 + 异常分类）
+├── index.html             # 前端（HTML + Tailwind v3 + 原生 JS，全部 UI）
+├── start.bat              # 🔑 一键启动（杀旧进程 + 启服务 + 开浏览器）
+├── stop.bat               # 一键停止
+├── app.py                 # Flask 启动入口（被 start.bat 调起）
+├── .env.example           # 环境变量模板
+├── requirements.txt       # Python 依赖
+├── crawler/               # 爬虫子模块
+│   ├── paper_download.py  #   arXiv 论文下载（CLI + Python API）
+│   ├── download_direct.py #   requests 直链下载（断点续传）
+│   ├── download_demo.py   #   Playwright 浏览器下载（点下载按钮）
+│   └── config.example.json
+├── sessions/              # 会话持久化（运行时自动创建）
+├── resources/             # 通用资源下载目录（运行时自动创建）
+├── papers/                # arXiv PDF 下载目录（运行时自动创建）
+└── README.md              # 本文档
 ```
+
+---
 
 ## 🛠️ 技术栈
 
-| 层 | 技术 | 说明 |
-|---|---|---|
-| **后端** | Flask + flask-cors | Python Web 框架 |
-| **API 客户端** | `requests` + `python-dotenv` | **原生 HTTP，不依赖任何 AI SDK** |
-| **PDF 解析** | `PyPDF2` | 服务器端提取 PDF 文本 |
-| **前端** | 原生 HTML5 + Tailwind CSS v3 + 原生 JS（ES6+） | CDN 引入 Tailwind |
-| **代码高亮** | Prism.js CDN | 核心 + python/js/ts/java/go/css/json/markup 语言包 |
-| **图标** | 全部内联 SVG，零第三方图标库 | — |
-| **联网搜索** | Serper.dev API（Google 搜索结果） | 可选，免费额度每月 2500 次 |
-| **多模态** | DeepSeek Vision 模型 | 图片请求自动切换 `deepseek-v4-flash-vision-exp` |
-| **会话存储** | `sessions/<sid>.json` | 文件持久化，零数据库 |
+| 层 | 技术 |
+|---|---|
+| 后端 | Flask + flask-cors + requests |
+| 大模型 | DeepSeek API（deepseek-v4-flash） |
+| 联网搜索 | Serper.dev API（Google + Bing，中国地区） |
+| 正文抓取 | Playwright（优先本机 Edge → 退回 Chromium） |
+| 文件下载 | requests 流式 + 断点续传 |
+| 论文下载 | feedparser + arXiv Atom API |
+| PDF 解析 | PyPDF2 |
+| 前端 | 原生 HTML5 + Tailwind v3 + 原生 JS（ES6+） |
+| 代码高亮 | Prism.js CDN |
+| 会话存储 | `sessions/<sid>.json` 文件持久化（零数据库） |
 
-## 🚀 快速开始
+---
+
+## 🚀 快速开始（3 步）
 
 ### 1. 安装依赖
 
 ```bash
+cd demo3-web
 pip install -r requirements.txt
 ```
 
-> 依赖清单：Flask、flask-cors、requests、python-dotenv、PyPDF2
+> 可选依赖（未装也能跑，自动降级）：
+> - `playwright` + `playwright install chromium` — 联网搜索正文抓取
+> - `feedparser` — arXiv 论文下载
 
 ### 2. 配置密钥
 
 ```bash
-# Windows PowerShell
-copy .env.example .env
-
-# macOS / Linux
-cp .env.example .env
+copy .env.example .env       # Windows PowerShell
+# cp .env.example .env      # macOS / Linux
 ```
 
 编辑 `.env`：
 
 ```env
-# 必填：DeepSeek API
-DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# 必填：DeepSeek
+DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxx
 DEEPSEEK_MODEL=deepseek-v4-flash
 DEEPSEEK_API_URL=https://api.deepseek.com/v1/chat/completions
 
-# 可选：多模态图片理解
+# 可选：多模态
 # DEEPSEEK_VISION_MODEL=deepseek-v4-flash-vision-exp
 
-# 可选：联网搜索（https://serper.dev 注册）
-SERPER_API_KEY=your_serper_api_key_here
+# 可选：联网搜索（https://serper.dev 注册，免费每月 2500 次）
+SERPER_API_KEY=your_key_here
 ```
 
-### 3. 启动服务
-
-```bash
-python server.py
-```
-
-启动成功后：
+### 3. 启动
 
 ```
-Baomi Agent 服务启动中...
-http://127.0.0.1:7860
+方式 A（推荐）：双击 start.bat
+方式 B：命令行 python server.py
 ```
 
-浏览器自动打开，开始聊天 🎉
+启动成功后自动打开 **http://localhost:7860** 🎉
+
+---
+
+## 💬 对话里怎么触发搜索/下载？
+
+### AI 自动意图识别——你说这些话就自动搜
+
+| 你说 | AI 做什么 |
+|------|----------|
+| 「帮我下载豆包客户端」 | 🔎 搜资源 → LLM 推荐 doubao.com 官网第 1 → 卡片出来 → 点下载 |
+| 「给我 RAG 相关的 PDF 论文」 | 🔎 搜 arXiv → LLM 筛选 → PDF 直链排前面 |
+| 「想找个 blender 免费教程」 | 🔎 多引擎搜 blender → 官方源 + GitHub + 国内站 |
+| 「豆包最新版本号是多少」 | 🔎 自动搜联网信息（普通 info 意图） |
+| （闲聊"你好"） | AI 自己说"不需要联网"，直接用已有知识回答 |
+
+### 信誉分系统
+
+每张资源卡有信誉徽章（AI 已经帮你筛过了）：
+
+| 徽章 | 含义 |
+|------|------|
+| ⭐ 官方 | doubao.com / github.com/releases / python.org 等 |
+| ✅ 可信 | sourceforge / ninite / 官方 CDN |
+| ⚠️ 一般 | apkpure / uptodown（可能有广告） |
+| ❌ 低质 | 垃圾广告站 / 超小假文件（已尽量过滤） |
+
+### 找不到资源时
+
+AI 会自动给**替代建议卡**：
+- 换关键词试试（列出它自动生成的替代词）
+- 换类型试试（加 site:github.com / filetype:pdf）
+- 用英文搜（中文关键词结果天生少）
+- 直接说在对话框（说完整需求效果好）
+
+---
 
 ## 🖥️ 界面操作
 
 ### 侧边栏
-| 操作 | 说明 |
-|---|---|
-| 点击「+ 新对话」 | 创建新会话 |
-| 点击历史项 | 切换会话，加载完整消息历史 |
-| hover 历史项 → 点 X | 删除会话（自定义确认弹窗） |
-| 点击底部「深色/浅色模式」 | 切换主题 |
-
-### 顶部栏
-| 控件 | 说明 |
-|---|---|
-| **🔎 联网搜索 Toggle** | 滑块开关；开=粉色高亮「已联网」；状态 localStorage 持久化；发请求带 `web_search: true/false` |
-| 会话标题 | AI 根据首条消息自动生成（可在侧栏重命名） |
+- 「+ 新对话」→ 创建
+- 点击历史项 → 切换
+- hover 历史项 → X 删除
+- 底部 → 深浅模式切换
 
 ### 输入区
 | 操作 | 说明 |
-|---|---|
-| **📎 附件按钮** | 弹出文件选择器；支持图片（JPG/PNG/GIF/WebP）、txt、md、pdf；可多选 |
-| 直接输入 → Enter / 点发送 | 发送消息 |
-| Shift + Enter | 输入框内换行 |
-| 发送中 → 点红色停止按钮 | 中断生成（AbortController） |
+|------|------|
+| **focus 输入框** | 自动弹出**🔍 搜索历史**（最近 15 条，点一行直接填入） |
+| **输入时** | 历史实时按子串过滤 |
+| **Enter** | 发送 |
+| **Shift + Enter** | 换行 |
+| **📎 附件** | 图片 / txt / md / pdf 多选 |
+| **发送中红色按钮** | 停止生成 |
 
-### 附件预览（豆包风格）
-| 类型 | 预览样式 |
-|---|---|
-| 图片 | 68×68 缩略图卡片（独立一行，不包粉色气泡）；点击可全屏放大 |
-| 文本 | 豆包风卡片：📄蓝图标 + 文件名 + 大小 |
-| Markdown | 豆包风卡片：📝紫图标 + 文件名 + 大小 |
-| PDF | 豆包风卡片：📕红图标 + 文件名 + 大小 |
+### AI 回复气泡底部
+```
+📦 AI 为你找到 4 个可下载资源 · 点「⬇ 下载」直接下到本地
 
-### 消息渲染
-| 操作 | 说明 |
-|---|---|
-| **hover AI 气泡** → 底部工具栏 | 复制 / 重试 / 分享 / 点赞 / 点踩（默认隐藏） |
-| **点击上角标¹²³** | 平滑滚动到对应参考来源条目 → flash 动画高亮 |
-| **参考来源折叠组件** | 默认展开；chevron 旋转动画；点角标自动展开 |
+⭐ 官方 | 🔗 网页 | www.doubao.com | 58 KB | ⬇ 下载  🔗
+✅ 可信 | 📄 PDF | arxiv.org | 752 KB | ⬇ 下载  🔗
+⚠️ 一般 | 🔗 网页 | uptodown.com | - | ⬇ 下载  🔗
+```
 
-### 工具栏详情（hover AI 消息浮现）
+点「⬇ 下载」→ 按钮变绿 ✅ 已下 → 追加 📂 打开按钮
+点「🔗」→ 浏览器打开原页面
 
-| 图标 | 功能 | 说明 |
-|---|---|---|
-| 📋 复制 | 复制 AI 回复纯文本 | 自动剥离 Markdown 语法 + Toast 提示 |
-| 🔄 重试 | 用原问题重新生成 | 删除旧 AI 气泡，重新发送 |
-| 🔗 分享 | 复制当前页面链接 | 带时间戳参数 |
-| 👍 点赞 | 标记好回复 | 按钮变粉色高亮 |
-| 👎 点踩 | 标记差回复 | 按钮变粉色高亮 |
+---
 
 ## 🔌 API 文档
 
-### 基础路径
-```
-http://127.0.0.1:7860
-```
-
-### 接口列表
+### 核心接口
 
 | 方法 | 路径 | 说明 |
-|---|---|---|
-| `GET` | `/` | 返回前端 `index.html` |
-| `GET` | `/api/health` | 健康检查：模型名、是否配置搜索、会话数 |
-| **`POST`** | **`/api/chat`** | **核心接口**：发送消息 → 返回 AI 回复 + sources |
-| **`POST`** | **`/api/upload`** | **文件上传**：multipart/form-data；后端解析后返回结构化内容 |
-| `GET` | `/api/sessions` | 列出所有会话（按修改时间降序） |
-| `POST` | `/api/sessions` | 创建新会话 |
-| `GET` | `/api/sessions/<sid>` | 加载某个会话完整消息历史 |
-| `DELETE` | `/api/sessions/<sid>` | 删除会话 |
-| `POST` | `/api/sessions/<sid>/rename` | 重命名会话 |
-| `POST` | `/api/sessions/<sid>/clear` | 清空会话消息（保留会话本身） |
+|------|------|------|
+| GET | `/` | 返回前端 index.html |
+| GET | `/api/health` | 健康检查 |
+| POST | `/api/chat` | **核心对话接口**（支持自动联网搜索 + 资源查找） |
+| POST | `/api/upload` | 文件上传（图片 → base64 / txt,md,pdf → 文本提取） |
+| GET | `/api/sessions` | 列出所有会话 |
+| POST | `/api/sessions` | 创建新会话 |
+| GET | `/api/sessions/<sid>` | 加载会话历史 |
+| DELETE | `/api/sessions/<sid>` | 删除会话 |
 
-### `/api/upload` 请求/响应
+### 资源搜索/下载（给前端独立调用 + LLM 内部复用）
 
-```http
-POST /api/upload
-Content-Type: multipart/form-data
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/resource/search` | 搜资源（Serper 多路并发 + HEAD 探测 + 信誉分排序） |
+| POST | `/api/resource/download` | 下载直链文件到 `resources/` 目录 |
+| GET | `/api/resource/list` | 列出已下载文件 |
+| GET | `/api/resource/file/<filename>` | 浏览器打开已下载文件 |
 
-file: (binary) test.pdf
-```
+### `/api/chat` 请求
 
 ```json
 {
-  "files": [
-    {
-      "filename": "test.pdf",
-      "kind": "text",
-      "mimetype": "application/pdf",
-      "content": "PDF 提取的完整文本内容...",
-      "size": 10240
-    }
-  ]
+  "session_id": "abc123",
+  "message": "帮我下载豆包 Windows 客户端",
+  "web_search": false,
+  "files": []
 }
 ```
 
-| kind | 处理方式 |
-|---|---|
-| `image` | 图片 bytes → base64 → 前端渲染缩略图；后端组装 `image_url` blocks 传给 vision 模型 |
-| `text` | txt/md → UTF-8 读取；pdf → PyPDF2 逐页提取 |
-| `unsupported` | 不支持的类型（如 docx）→ `error` 字段提示 |
-
-### `/api/chat` 请求示例
-
-```json
-POST /api/chat
-{
-  "session_id": "abc123def456",
-  "message": "2024 年诺贝尔物理学奖得主是谁？",
-  "web_search": true,
-  "files": [
-    {
-      "filename": "photo.jpg",
-      "kind": "image",
-      "mimetype": "image/jpeg",
-      "content": "/9j/4AAQSkZJRgABAQ...",
-      "size": 204800
-    }
-  ]
-}
-```
-
-### `/api/chat` 响应示例
+### `/api/chat` 响应
 
 ```json
 {
-  "reply": "2024 年诺贝尔物理学奖由约翰·霍普菲尔德和尤里·利奥波德共同获得¹。他们...",
+  "reply": "推荐从 doubao.com 官网下载（⭐ 官方，最可信）...",
   "model": "deepseek-v4-flash",
-  "history_len": 8,
   "searched": true,
   "sources": [
-    {"source_id": 1, "title": "2024 Nobel Prize in Physics - Wikipedia", "snippet": "...", "link": "https://..."},
-    {"source_id": 2, "title": "...", "snippet": "...", "link": "..."}
+    {"source_id": 1, "title": "下载豆包客户端", "snippet": "...", "link": "..."}
+  ],
+  "resource_results": [
+    {
+      "title": "下载豆包客户端",
+      "filetype_label": "🔗 网页",
+      "domain": "www.doubao.com",
+      "score": 78.0,
+      "link": "https://www.doubao.com/download/",
+      "is_suggestion": false
+    }
   ]
 }
 ```
 
-## 🧩 联网搜索 + 参考来源渲染流程
+---
+
+## 🧩 联网搜索完整流程
 
 ```
-用户发送 + web_search=true
-    ↓
-Flask 调 Serper API（google.serper.dev/search）
-    ↓
-format_sources_for_llm() — 只传 source_id + title + snippet
-❌ 绝对不把原始 URL 注入 prompt（防止 LLM 幻觉输出假链接）
-    ↓
-DeepSeekClient.chat_with_override(sources=...)
-    ↓
-LLM 返回带上角标¹²³的回答（system prompt 强制约束输出铁则）
-    ↓
-后端返回结构化 sources JSON 给前端（独立于 reply 文本）
-    ↓
-前端 convertSuperscripts()：
-  TreeWalker 遍历文本节点 → Unicode¹²³ → <sup class="ref-sup" data-source-id="1">1</sup>
-  跳过 <code> 防误伤代码块内数字
-    ↓
-前端 renderSources()：
-  <details open><summary>▶ 参考来源 3</summary>
-  → 列表项 <a class="ref-item" data-source-id="1" href="原始URL" target="_blank">
-  → 只显示 title，不显示长 URL
-    ↓
-bindSupScroll() — 点击上角标：
-  找到同气泡里 .ref-item[data-source-id=N]
-  → 展开 details → scrollIntoView → flash 动画高亮
+用户在对话框说 "帮我下豆包"
+         ↓
+   /api/chat
+         ↓
+_auto_should_search() ──→ 自动识别 intent_tag="resource"
+         ↓
+do_web_search() ──→ Serper (gl=cn, hl=zh-cn) + Playwright 抓正文
+         ↓
+_run_resource_search() ──→ Google + Bing 并发
+   ├─ 多路 query（原始 + 剥掉指令词 + 加 github/official/filetype:pdf）
+   ├─ HEAD 探测 Content-Type + Content-Length
+   ├─ _score_resource() 信誉分（官方+20 GitHub+25 广告-15 假文件<3KB直接丢）
+   ├─ 过滤浏览器下载页黑名单
+   ├─ 结果 < 3 条？→ 自动换关键词再搜一轮
+   └─ 还是少？→ 生成 💡 建议卡
+         ↓
+_format_resource_results_for_llm() ──→ 喂给 DeepSeek
+         ↓
+DeepSeek 回复自然语言推荐 + resource_results 结构化卡
+         ↓
+前端 renderResourceCards() ──→ 在对话气泡底部渲染卡片
 ```
+
+---
 
 ## 🗂️ 会话文件格式
 
+`sessions/<sid>.json`：
+
 ```json
 {
-  "id": "abc123def456",
-  "title": "2024 诺贝尔物理学奖",
+  "id": "abc123",
+  "title": "新对话",
   "created_at": 1725500000,
   "messages": [
-    {"role": "system", "content": "...Baomi Agent 固定指令..."},
-    {"role": "user", "content": "图片里的人帅吗", "files": [{"filename": "photo.jpg", "kind": "image", "content": "base64..."}]},
-    {"role": "assistant", "content": "...", "sources": [{"source_id":1,"title":"...","link":"..."}]}
+    {"role": "system", "content": "...Baomi Agent 指令..."},
+    {"role": "user", "content": "帮我下载豆包"},
+    {"role": "assistant", "content": "推荐 doubao.com 官网..."}
   ]
 }
 ```
 
-> user message 的 `files` 字段存**瘦身版**：图片保留 base64（供历史回放渲染），文本/PDF 只存元数据（`filename, kind, size, mimetype`），不存提取的文本内容（已经在当前对话消费过了）。
+---
 
-## 🛡️ 异常分类处理
+## 🛡️ 合规红线
 
-| 异常类型 | HTTP 状态码 | 友好提示 | 触发场景 |
-|---|---|---|---|
-| `PermissionError` | 401 | 认证失败 | API_KEY 错误 |
-| `ConnectionError` | 502 | 网络连接失败 | 无网络 / API 域名不可达 |
-| `TimeoutError` | 504 | 请求超时 | API 响应过慢 |
-| `RuntimeError` | 500 | 其他错误 | 服务端 5xx / JSON 解析失败 / 未配置 SERPER_API_KEY |
+- ❌ 不破解付费墙 / 不伪造 Cookie 提权
+- ❌ 不碰 Sci-Hub / LibGen / BT 站 / 盗版 MP3 站（PIRACY_BLOCKLIST）
+- ✅ 只推荐合法公开资源（GitHub Releases / 官方下载页 / arXiv / public domain）
+- ✅ Cookie 只存自己的登录态（crawler/sessions/）
+- ✅ `.env` 和 `sessions/` 已在 `.gitignore`
+
+---
+
+## 📝 更新日志
+
+### Day 9（2026-09-09）
+- ✅ **LLM 驱动资源搜索**：意图识别 → Serper 多路 → Playwright 正文 → LLM 筛选推荐 → 对话气泡卡
+- ✅ **搜索历史下拉**：输入框 focus 自动弹出，localStorage 存，去重 15 条
+- ✅ **一键启动脚本**：`start.bat` / `stop.bat`
+- ✅ **中国本地化**：Serper `gl=cn, hl=zh-cn`，浏览器下载页黑名单
+- ✅ **信誉分 + 浏览器下载页过滤**
+
+### Day 8
+- ✅ Playwright 正文抓取集成联网搜索
+- ✅ arXiv 文献搜索 + 下载后端（`/api/paper/*`）
+
+### Day 5-7
+- ✅ 文件上传（图片 / txt / md / pdf）
+- ✅ Kimi 风格工具栏 + 代码块增强 + 上角标跳转
+- ✅ 多会话持久化 + 深浅模式
+
+---
 
 ## 🔒 安全
 
-- `.env` 已在 `.gitignore` 中，**永远不会提交到 GitHub**
-- `sessions/*.json` 也被忽略（包含对话历史 + 用户上传的图片 base64）
-- 所有密钥从环境变量读取，代码零硬编码
-- Flask 加了 `no-cache` 响应头防止浏览器缓存旧 HTML
-- 前端 `escapeHtml()` 全程 XSS 防护（Markdown 渲染、代码块、附件名）
-- 上角标转换用 TreeWalker 在 DOM 文本节点操作，不破坏 HTML 结构
-- 文件上传后端做 MIME + 扩展名双重校验；PyPDF2 延迟导入减少内存
+- `.env` / `sessions/` / `resources/` 全部在 `.gitignore`
+- 所有密钥从环境变量读取，零硬编码
+- 前端 `escapeHtml()` 全程 XSS 防护
+- 文件上传后端 MIME + 扩展名双重校验
 
-## 🧠 Baomi Agent 系统指令（保护 KV 缓存）
-
-前端不修改，但后端 `client.py` 内置固定 system prompt，约束 LLM 输出格式：
-
-| 约束 | 说明 |
-|---|---|
-| **禁止输出完整 URL** | 链接、来源名称全走后端 sources JSON 返回 |
-| **上角标¹²³引用** | 对应后端传入的 source_id |
-| **禁止编造来源列表** | 后端 Python 爬虫产出 sources 数组，LLM 不能自己生成 |
-| **无素材不加角标** | 没有检索素材不虚构引用编号 |
-| **标准 markdown** | 无多余表情/客套话/总结落款 |
-| **静态指令固定** | 动态爬虫素材 + 用户提问拼在 prompt 末尾，保障 KV 缓存命中率 ≥ 95% |
-
-## 📝 知识点（对照 demo3 学习计划）
-
-### Python 后端
-- 类封装（`DeepSeekClient.__init__`、实例属性、方法）
-- `requests.post()` + `timeout=30` + 重试逻辑
-- `json.loads()` 原生解析
-- `python-dotenv` 加载 `.env`
-- 异常分类捕获（`PermissionError` / `ConnectionError` / `TimeoutError`）
-- Flask 路由 + JSON 请求/响应 + `request.files` multipart 处理
-- `pathlib.Path` 文件操作 + `json.dumps` 持久化
-- PyPDF2 延迟导入 + 异常容错
-- base64 编解码 + BytesIO 内存流
-
-### 前端
-- 原生 JavaScript ES6+（fetch / async-await / AbortController）
-- Tailwind CSS v3 CDN + 自定义 CSS 变量
-- BEM 命名规范
-- Prism.js 动态加载 + `highlightElement` 代码高亮
-- `document.createTreeWalker` 遍历 DOM 文本节点做精细替换
-- `DocumentFragment` 减少 DOM reflow
-- `<details>/<summary>` 原生折叠组件
-- `localStorage` 持久化主题 + Toggle 状态
-- `clipboard.writeText` API 复制文本
-- `navigator.clipboard` + Toast 反馈
-- `scrollIntoView({behavior:'smooth'})` 平滑滚动
-- HTML5 `DataTransfer` 模拟文件选择
-- MutationObserver 可选（代码块增强绑定）
-
-## 📁 与 demo3 的关系
-
-```
-demo3/                demo3-web/
-├── client.py  ←──── 复用架构，扩展 vision + chat_with_override ──── client.py
-├── main.py                                server.py（Flask 重新实现交互层）
-├── .env.example                           .env.example（同一格式，新增 vision 配置）
-└── README.md                              index.html（全新前端）
-                                           app.py（启动入口）
-                                           sessions/*.json（新增持久化）
-                                           requirements.txt（新增 PyPDF2）
-```
-
-**核心业务逻辑（API 调用 + 重试 + 异常分类）在 `demo3/client.py` 已经写好，demo3-web 只是换了个交互界面（Flask + 浏览器），没有重写任何业务代码。新增功能（多模态、sources 持久化、chat_with_override 灵活接口）都是扩展，不破坏原有调用链。**
-
-## 📈 commit 历史
-
-```
-commit 26524d4  demo3-web 初版：Flask + 多会话 + 联网搜索 + Kimi 工具栏
-commit xxxxxxx  P1-3 文件上传：/api/upload + PyPDF2 + base64 + 豆包风格预览
-commit xxxxxxx  P1-4 代码块增强：Prism.js + 复制按钮 + escapeHtml
-commit xxxxxxx  P0 UI 改造：sources 折叠 + 上角标跳转 + Toggle + Loading 区分
-```
+> 🎀 粉色主题 · 豆包风格预览 · 小猪涂鸦头像 🐷
