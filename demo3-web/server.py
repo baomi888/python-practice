@@ -419,6 +419,43 @@ def api_rename_session(sid):
     return jsonify({"ok": True})
 
 
+# ========== 对话里自动触发联网搜索的关键词 ==========
+# 不局限于用户手动勾联网搜索 —— AI 自己判断要不要搜
+_SEARCH_TRIGGER_KEYWORDS = [
+    "下载", "下一个", "给我", "帮我找", "帮我下", "哪里有", "在哪找", "哪里下载", "去哪下",
+    "找一下", "搜一下", "查一下", "最新", "最近", "今天", "现在",
+    "软件", "APP", "APK", "EXE", "工具", "程序",
+    "PDF", "论文", "文献", "教程", "电子书", "资料", "电子书",
+    "音乐", "视频", "电影", "图片", "壁纸",
+    "官方", "官网", "版本", "release",
+    "豆包", "deepseek", "kimi", "glm", "claude", "chatgpt", "gemini",
+    "github", "gitlab",
+]
+
+
+def _auto_should_search(message: str, user_explicit_search: bool) -> tuple[bool, str]:
+    """自动判断用户是否需要联网搜索 / 资源查找。
+
+    Returns:
+        (should_search, intent_tag)
+        intent_tag: "resource"（找下载资源）| "info"（普通搜索）| ""（不需要）
+    """
+    if user_explicit_search:
+        return True, "info"
+
+    msg = message.lower()
+    hit = any(kw.lower() in msg for kw in _SEARCH_TRIGGER_KEYWORDS)
+    if not hit:
+        return False, ""
+
+    # 区分"下载资源"意图 vs "普通搜信息"意图
+    resource_kw = ["下载", "下", "给我", "软件", "app", "apk", "exe", "工具",
+                   "pdf", "论文", "文献", "电子书", "在哪里下", "去哪下", "哪里下载",
+                   "下一个"]
+    is_resource = any(kw in message.lower() for kw in resource_kw)
+    return True, "resource" if is_resource else "info"
+
+
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
     data = request.get_json(force=True, silent=True) or {}
@@ -440,30 +477,42 @@ def api_chat():
     client.messages = list(sess.get("messages", []))
     client.ensure_system_prompt()
 
+    # ========== AI 自动判断是否需要搜索 ==========
+    should_search, intent_tag = _auto_should_search(message, web_search)
+
     # ========== 联网搜索 ==========
     sources = []
     searched = False
-    if web_search:
+    if should_search:
         try:
-            sources = do_web_search(message, num_results=5)
+            sources = do_web_search(message, num_results=8)  # 多拿点给 LLM 筛选
             searched = True
         except RuntimeError:
             pass
 
-    # ========== 文件：文本进 user_content，图片进 image_blocks ==========
-    text_files = [f for f in file_results if f.get("kind") in ("text", "pdf")]
-    image_files = [f for f in file_results if f.get("kind") == "image" and f.get("content")]
+    # ========== 如果是资源查找意图，额外跑一轮 resource_search ==========
+    resource_results = []
+    if should_search and intent_tag == "resource":
+        try:
+            resource_results = _run_resource_search(message)
+        except Exception:
+            pass
 
+    # ========== 文件：文本进 user_content，图片进 image_blocks ==========
     text_file_content, image_blocks = build_user_content_with_files(message, file_results)
 
     # ========== 组装完整 LLM user message ==========
     user_content_parts = []
-    if sources:
+
+    if resource_results:
+        # 资源查找：用专门的格式喂给 LLM
+        resource_prompt = _format_resource_results_for_llm(message, resource_results)
+        user_content_parts.append(resource_prompt)
+    elif sources:
         user_content_parts.append(format_sources_for_llm(sources))
     elif searched:
         user_content_parts.append("[联网检索未获得有效素材，请根据已有知识回答]")
 
-    # 文件文本 + 用户问题（build_user_content_with_files 已把两者拼好了）
     user_content_parts.append(text_file_content)
 
     actual_message = "\n\n".join(user_content_parts)
@@ -493,14 +542,146 @@ def api_chat():
 
     save_session(sid, title, client.messages, sess.get("created_at"))
 
+    # 把 resource_results 也塞回给前端渲染成卡片
+    all_sources = list(sources)
+    if resource_results:
+        all_sources.extend(resource_results)
+
     return jsonify({
         "reply": reply,
         "model": client.model,
         "history_len": len(client.messages),
         "searched": searched,
-        "sources": sources,
+        "sources": all_sources,
+        "resource_results": resource_results if resource_results else None,
         "title": title,
     })
+
+
+# ========== 资源搜索（用于 LLM 对话里的自动查找）==========
+
+def _run_resource_search(query: str, max_results: int = 6) -> list:
+    """在对话里自动调资源搜索 —— 复用 /api/resource/search 的核心逻辑。
+
+    直接 import 内部函数，避免 HTTP 自调用的额外开销。
+    """
+    if not SERPER_API_KEY:
+        return []
+
+    from urllib.parse import urlparse, unquote
+    import concurrent.futures
+
+    # 多路查询（基础 + 中文辅助词 + filetype 后缀）
+    has_chinese = any('\u4e00' <= c <= '\u9fff' for c in query)
+    base_queries = [query]
+    if has_chinese:
+        base_queries.extend([f"{query} 下载", f"{query} 官方", f"{query} 免费"])
+
+    all_queries = list(base_queries)
+    for suffix in ["filetype:pdf", "filetype:zip", "filetype:apk", "filetype:exe"]:
+        all_queries.append(f"{query} {suffix}")
+
+    all_organic = []
+    seen = set()
+
+    def _serper_one(q, engine="google"):
+        try:
+            payload = {"q": q, "num": 6}
+            if engine != "google":
+                payload["engine"] = engine
+            resp = requests.post(
+                SERPER_URL,
+                headers={"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"},
+                data=json.dumps(payload),
+                timeout=10,
+            )
+            resp.raise_for_status()
+            return resp.json().get("organic", [])
+        except Exception:
+            return []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        tasks = []
+        for q in all_queries:
+            tasks.append(pool.submit(_serper_one, q))
+            tasks.append(pool.submit(_serper_one, q, "bing"))
+        for fut in concurrent.futures.as_completed(tasks):
+            for r in fut.result():
+                url = r.get("link", "")
+                if url and url not in seen:
+                    seen.add(url)
+                    all_organic.append(r)
+
+    # 去盗版 + 打分
+    results = []
+    for r in all_organic:
+        url = r.get("link", "")
+        if not _is_legit_resource(url, r.get("snippet", "")):
+            continue
+
+        title = r.get("title", "")
+        snippet = r.get("snippet", "")[:200]
+        domain_raw = url.split("/")[2] if "://" in url else ""
+
+        # HEAD 探类型
+        ct = ""
+        size_kb = None
+        try:
+            head = requests.head(url, timeout=3, allow_redirects=True,
+                                 headers={"User-Agent": "Mozilla/5.0 Chrome/122"})
+            ct = head.headers.get("Content-Type", "")
+            cl = head.headers.get("Content-Length", "0")
+            if cl.isdigit():
+                size_kb = round(int(cl) / 1024, 1)
+        except Exception:
+            pass
+
+        ft_label, ft_cat = _guess_filetype(url, ct)
+        score = _score_resource(url, ct, size_kb, "")
+
+        # 超小假文件拦截
+        if size_kb is not None and 0 < size_kb < 3 and ft_cat in ("app", "audio", "video"):
+            continue
+
+        results.append({
+            "title": title,
+            "snippet": snippet,
+            "domain": domain_raw,
+            "link": url,
+            "filetype_label": ft_label,
+            "filetype_cat": ft_cat,
+            "size_kb": size_kb,
+            "score": round(score, 1),
+            "resource": True,   # 标记给前端渲染成资源卡片
+        })
+
+    # 信誉分排序
+    results.sort(key=lambda x: x["score"], reverse=True)
+    return results[:max_results]
+
+
+def _format_resource_results_for_llm(user_query: str, resource_results: list) -> str:
+    """把资源搜索结果喂给 LLM，让 LLM 来筛选 + 推荐 + 组织语言。"""
+    lines = [f"[用户要找/下载: {user_query}]"]
+    lines.append("")
+    lines.append("[以下是联网搜索到的候选资源，你需要筛选、推荐、组织成自然语言回复给用户]")
+    lines.append("")
+    lines.append("候选资源列表（按信誉分从高到低排序）：")
+    for i, r in enumerate(resource_results, 1):
+        size = f"{r['size_kb']} KB" if r.get("size_kb") else "未知大小"
+        lines.append(f"  {i}. [{r['filetype_label']}] {r['title']}")
+        lines.append(f"     来源: {r['domain']}  大小: {size}  信誉分: {r['score']}")
+        if r.get("snippet"):
+            lines.append(f"     摘要: {r['snippet'][:120]}")
+    lines.append("")
+    lines.append("你的任务：")
+    lines.append("1. 从候选里挑 2~4 个最可信的推荐给用户")
+    lines.append("2. 优先官方源、GitHub Releases、sourceforge 等可信聚合站")
+    lines.append("3. 谨慎推荐 apkpure/uptodown 这类有广告的第三方站，要提醒用户")
+    lines.append("4. 每个推荐包含：名称 + 为什么推荐 + 下载入口提示")
+    lines.append("5. 如果没有找到合适的资源，如实说")
+    lines.append("")
+    return "\n".join(lines)
 
 
 @app.route("/api/upload", methods=["POST"])

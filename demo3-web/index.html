@@ -822,7 +822,7 @@ function bindTools(wrap, rawText){
   });
 }
 
-function replaceWithReply(wrap, text, sources){
+function replaceWithReply(wrap, text, sources, resourceResults){
   const aiDiv = document.createElement('div');
   aiDiv.className = 'msg-ai md';
   aiDiv.innerHTML = renderMarkdown(text);
@@ -835,8 +835,97 @@ function replaceWithReply(wrap, text, sources){
     renderSources(aiDiv, sources);
     bindSupScroll(aiDiv, sources);
   }
+  // 资源卡片（LLM 对话里自动搜索/推荐的下载资源）
+  if(resourceResults && resourceResults.length){
+    renderResourceCards(aiDiv, resourceResults);
+  }
   bindTools(wrap, text);
   scrollToBottom();
+}
+
+/* ============ 资源下载卡片（LLM 对话里自动推荐）============ */
+function renderResourceCards(aiDiv, resources){
+  const cardHtml = `
+  <div style="margin-top:14px;border-top:1px dashed #e5e7eb;padding-top:10px">
+    <div style="font-size:12px;color:#6b7280;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+      📦 <b>AI 为你找到 ${resources.length} 个可下载资源</b> · 点「⬇ 下载」直接下到本地
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${resources.map((r,i) => {
+        const score = r.score || 50;
+        let scoreColor = '#10b981', scoreLabel = '✅ 可信';
+        if(score < 40){ scoreColor = '#ef4444'; scoreLabel = '❌ 低质'; }
+        else if(score < 60){ scoreColor = '#f59e0b'; scoreLabel = '⚠️ 一般'; }
+        else if(score >= 80){ scoreLabel = '⭐ 官方'; }
+        const sizeTxt = r.size_kb ? `${r.size_kb >= 1024 ? (r.size_kb/1024).toFixed(1)+' MB' : r.size_kb+' KB'}` : '未知大小';
+        return `
+        <div class="res-card" style="padding:8px 12px;border-radius:10px;border:1.5px solid #eef0f5;background:#fff;transition:all .15s;display:flex;align-items:center;gap:10px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;color:#1f2937;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(r.title)}</div>
+            <div style="font-size:11px;color:#9ca3af;margin-top:2px;display:flex;align-items:center;gap:8px">
+              <span style="padding:1px 6px;border-radius:6px;background:rgba(59,130,246,0.1);color:#2563eb">${escapeHtml(r.filetype_label)}</span>
+              <span>${escapeHtml(r.domain)}</span>
+              <span>${sizeTxt}</span>
+              <span style="color:${scoreColor};font-weight:600">${scoreLabel}</span>
+            </div>
+          </div>
+          <button class="res-btn" data-ridx="${i}" style="padding:4px 10px;font-size:12px;flex-shrink:0;background:linear-gradient(135deg,#2563eb,#3b82f6);border:none;color:#fff;border-radius:6px;cursor:pointer">⬇ 下载</button>
+          <button data-ridx="${i}" data-action="open" style="padding:4px 8px;font-size:11px;flex-shrink:0;background:transparent;border:1px solid #d1d5db;color:#6b7280;border-radius:6px;cursor:pointer">🔗</button>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+  aiDiv.insertAdjacentHTML('beforeend', cardHtml);
+
+  // 绑定下载/打开事件（委托到 aiDiv）
+  aiDiv.onclick = (e) => {
+    const dlBtn = e.target.closest('.res-btn');
+    const openBtn = e.target.closest('[data-action="open"]');
+    const ridx = parseInt(e.target.dataset.ridx || (e.target.parentElement && e.target.parentElement.dataset && e.target.parentElement.dataset.ridx));
+    if(isNaN(ridx)) return;
+    const resItem = resources[ridx];
+    if(!resItem) return;
+
+    if(e.target.dataset.action === 'open' || (openBtn && !dlBtn)){
+      window.open(resItem.link, '_blank');
+      return;
+    }
+    if(dlBtn){
+      downloadOneFromChat(resItem, dlBtn);
+    }
+  };
+}
+
+async function downloadOneFromChat(resItem, btn){
+  btn.disabled = true;
+  const origTxt = btn.textContent;
+  btn.textContent = '⏳ 下载中...';
+  try{
+    const resp = await fetch('/api/resource/download', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({url: resItem.link})
+    });
+    const data = await resp.json();
+    if(!resp.ok){
+      btn.textContent = '❌ 失败';
+      btn.style.background = '#ef4444';
+      setTimeout(()=>{ btn.textContent = origTxt; btn.style = ''; btn.disabled=false; }, 2500);
+      return;
+    }
+    btn.textContent = '✅ 已下';
+    btn.style.background = '#059669';
+    btn.disabled = true;
+    // 加"打开"按钮
+    const openLocal = document.createElement('button');
+    openLocal.textContent = '📂 打开';
+    openLocal.style.cssText = 'padding:4px 8px;font-size:11px;margin-left:6px;background:rgba(5,150,105,0.1);border:1px solid #059669;color:#059669;border-radius:6px;cursor:pointer';
+    openLocal.onclick = ()=> window.open('/api/resource/file/' + encodeURIComponent(data.filename), '_blank');
+    btn.parentElement.appendChild(openLocal);
+  }catch(err){
+    btn.textContent = '❌ 网络错';
+    setTimeout(()=>{ btn.textContent = origTxt; btn.style = ''; btn.disabled=false; }, 2500);
+  }
 }
 
 /* ============ 渲染 sources 引用来源卡片（折叠组件） ============ */
@@ -1068,7 +1157,7 @@ async function sendMessage(text){
     });
     const data = await res.json();
     if(!res.ok) throw new Error(data.error||`HTTP ${res.status}`);
-    replaceWithReply(loadingWrap, data.reply, data.sources || []);
+    replaceWithReply(loadingWrap, data.reply, data.sources || [], data.resource_results || []);
     if(data.title && data.title!=='新对话') document.getElementById('chatTitle').textContent = data.title;
     refreshSessionList();
   }catch(err){
