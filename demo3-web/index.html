@@ -1184,28 +1184,40 @@ paperGo.addEventListener('click', async ()=>{
       return;
     }
 
-    // 渲染结果卡片（每张有独立下载按钮）
-    let h = `<div style="font-size:12px;color:#6b7280;margin-bottom:10px">✅ 搜出 ${data.results.length} 条结果 · 直链文件排前面 · 点「下载」单个下 · 盗版已过滤</div>`;
+    // 渲染结果卡片（每张有独立下载按钮 + 信誉分徽章 + 可疑灰化）
+    let h = `<div style="font-size:12px;color:#6b7280;margin-bottom:10px">✅ 搜出 ${data.results.length} 条结果 · 信誉分高的排前面 · 盗版/假 APK 已过滤</div>`;
     for(let i=0;i<data.results.length;i++){
       const r = data.results[i];
       const sizeTxt = r.size_kb ? `${r.size_kb} KB` : '';
-      // domain_tag 优先显示（🐙GitHub / ▶️ B站 / 🎵网易云）
       const domainShow = r.domain_tag ? r.domain_tag : r.domain;
       const isWeb = r.filetype_cat === 'web';
+      const susp = r.suspicious;
+      const score = r.score || 50;
+      // 信誉分徽章颜色
+      let scoreColor = '#10b981';  // 绿 = 好
+      let scoreBg = 'rgba(16,185,129,0.1)';
+      if(score < 40){ scoreColor = '#ef4444'; scoreBg = 'rgba(239,68,68,0.1)'; }
+      else if(score < 60){ scoreColor = '#f59e0b'; scoreBg = 'rgba(245,158,11,0.1)'; }
+
       h += `
-        <div class="res-card" data-idx="${i}" style="${isWeb?'border-style:dashed':''}">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+        <div class="res-card" data-idx="${i}" style="
+          ${isWeb?'border-style:dashed':''}
+          ${susp?'opacity:0.65;background:#fafafa':''}
+        ">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
             <span class="res-type" style="${isWeb?'background:rgba(107,114,128,0.1);color:#6b7280':''}">${r.filetype_label}</span>
             <span style="font-size:12px;color:#6b7280">${escapeHtml(domainShow)}</span>
             ${sizeTxt ? `<span style="font-size:12px;color:#9ca3af">· ${sizeTxt}</span>` : ''}
-            ${isWeb ? `<span style="font-size:11px;color:#f59e0b;margin-left:auto">⚠️ 网页可能无直链</span>` : ''}
+            <span style="margin-left:auto;font-size:11px;padding:1px 7px;border-radius:8px;background:${scoreBg};color:${scoreColor};font-weight:600">
+              ${score >= 80 ? '⭐ 官方' : score >= 60 ? '✅ 可信' : score >= 40 ? '⚠️ 一般' : '❌ 低质'}
+            </span>
+            ${isWeb ? `<span style="font-size:11px;color:#9ca3af">· 网页型</span>` : ''}
           </div>
-          <div style="font-size:13px;color:#1f2937;font-weight:500;line-height:1.4;margin-bottom:4px">${escapeHtml(r.title)}</div>
-          ${r.snippet ? `<div style="font-size:12px;color:#6b7280;line-height:1.4;margin-bottom:8px">${escapeHtml(r.snippet)}</div>` : ''}
+          <div style="font-size:13px;color:${susp?'#9ca3af':'#1f2937'};font-weight:500;line-height:1.4;margin-bottom:4px">${escapeHtml(r.title)}</div>
+          ${r.snippet ? `<div style="font-size:12px;color:${susp?'#d1d5db':'#6b7280'};line-height:1.4;margin-bottom:8px">${escapeHtml(r.snippet)}</div>` : ''}
           <div style="display:flex;gap:8px">
             ${isWeb 
-              ? `<button class="res-btn ghost" data-action="open" data-idx="${i}" style="border-color:#6b7280;color:#6b7280">🔗 浏览器打开</button>
-                 <button class="res-btn ghost" data-action="download" data-idx="${i}" style="border-color:#f59e0b;color:#f59e0b">⚠️ 强行下载网页</button>`
+              ? `<button class="res-btn ghost" data-action="open" data-idx="${i}" style="border-color:#6b7280;color:#6b7280">🔗 浏览器打开</button>`
               : `<button class="res-btn" data-action="download" data-idx="${i}">⬇ 下载</button>
                  <button class="res-btn ghost" data-action="open" data-idx="${i}">🔗 浏览器打开</button>`
             }

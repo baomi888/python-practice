@@ -687,23 +687,111 @@ EXT_TYPE_MAP = {
     ".py": ("🐍 PY", "python"),
 }
 
-# 硬盗版 / 灰色站 blocklist（只拦绝对违法的，合法站放开让用户自己判断）
+# 盗版 / 硬违法 blocklist（绝对不能碰）
 PIRACY_BLOCKLIST = (
-    # 学术盗版
     "sci-hub", "libgen", "library genesis", "bookzz", "scihub",
-    # 盗版 BT / 磁力
     "1337x", "thepiratebay", "kickass", "rarbg", "yts.mx", "yify",
-    # 盗版 MP3 converter
     "mp3juice", "mp3converter", "freemp3", "mp3skull",
-    # 常见盗版后缀
     ".torrent", "magnet:",
-    # 盗版网盘聚合
     "aliyundrivepan", "aliyunpan",
 )
 
-# 正常网站（youtube / bilibili / iqiyi / youku / 百度文库 / CSDN 等）
-# 不 block——里面有大量合法/免费/开放授权资源，让用户自己判断
-# 但可以做标签提示，告诉用户"这是流媒体站，不是直链文件"
+# 官方下载源域名（高优先级）
+OFFICIAL_DOWNLOAD_DOMAINS = (
+    # AI / App 官网
+    "doubao.com",          # 豆包
+    "doubao.com/download",
+    "chatglm.cn",
+    "tongyi.aliyun.com",
+    "kimi.moonshot.cn",
+    "xinghuo.xfyun.cn",
+    "github.com",
+    "gitlab.com",
+    # 平台 & 官方
+    "microsoft.com", "aka.ms", "visualstudio.com",
+    "apple.com", "developer.apple.com", "apps.apple.com",
+    "play.google.com", "developer.android.com",
+    "developer.chrome.com",
+    "download.com", "majorgeeks.com", "softpedia.com",
+    "ninite.com", "winapps.org", "chocolatey.org", "winget.run", "scoop.sh",
+    # 开发者工具
+    "nodejs.org", "python.org", "anaconda.org", "pypi.org", "npmjs.com",
+    "wireshark.org", "blender.org", "gimp.org", "inkscape.org",
+    "jetbrains.com", "vscode.dev", "code.visualstudio.com",
+    "developer.mozilla.org", "learn.microsoft.com",
+    # CDN
+    "cdn.jsdelivr.net", "githubusercontent.com",
+    "dl.google.com", "redirector.gvt1.com",
+    # 开源 / 免费资源聚合
+    "sourceforge.net", "dl.sourceforge.net",
+    "archive.org", "gutenberg.org", "librivox.org",
+    "freemusicarchive.org", "jamendo.com",
+)
+
+# URL 路径里包含这些关键词 → 是下载页面 / 文件
+_DOWNLOAD_PATH_KEYWORDS = (
+    "download", "downloads", "release", "releases", "dl", "bin", "install",
+    "setup", "setup.exe", "installer", "portable", ".dmg", ".exe", ".msi",
+    ".apk", ".zip", ".7z", ".tar.gz",
+)
+
+# 高风险广告 / 假下载站（比 PIRACY_BLOCKLIST 更宽，拦截假 APK/EXE）
+SHADY_AD_DOMAINS = (
+    "apkpure.com", "apkmirror.com", "apkcombo.com", "apkmonk.com",
+    "cnet.com",           # 允许但标记（因为 CNET 的 download.com 还可以）
+    "softonic.com",
+    "uptodown.com",
+    "filehippo.com",      # 允许但标记
+)
+
+
+def _score_resource(url: str, ct: str, size_kb, domain_tag: str) -> float:
+    """给结果打信誉分（0~100），用于排序。分越高越排前面。"""
+    score = 50.0
+    low = url.lower()
+
+    # 1. 真实文件类型加分（HEAD 检测不是 application/html）
+    if ct and "text/html" not in ct.lower():
+        score += 15
+    elif ct and "application/octet-stream" in ct.lower():
+        score += 8   # 可能是文件，也可能是广告，保守
+
+    # 2. 文件大小合理加分（软件至少几 MB，7.2 KB 的 APK 肯定是假的）
+    if size_kb and size_kb > 0:
+        if size_kb >= 512:        # ≥ 512 KB，基本可信
+            score += 10
+        elif size_kb >= 50:       # 50~512 KB，一般
+            score += 3
+        else:                     # < 50 KB 的 .exe/.apk —— 很可疑！
+            score -= 25
+
+    # 3. 域名在官方下载源列表
+    for d in OFFICIAL_DOWNLOAD_DOMAINS:
+        if d in low:
+            score += 20
+            break
+
+    # 4. URL 路径含 download/release/install 等关键词
+    for kw in _DOWNLOAD_PATH_KEYWORDS:
+        if kw in low:
+            score += 8
+            break
+
+    # 5. GitHub Release 特殊加分（最可信的开源软件源）
+    if "github.com" in low and ("releases" in low or "/tag/" in low or "/download/" in low):
+        score += 25
+
+    # 6. 可疑站扣分
+    for d in SHADY_AD_DOMAINS:
+        if d in low:
+            score -= 15
+            break
+
+    # 7. URL 里有 "ad" / "track" / "click" → 很可能是广告跳转
+    if any(x in low for x in ["/ad/", "/ads/", "track", "click", "redirect"]):
+        score -= 10
+
+    return max(0.0, min(100.0, score))
 
 
 def _guess_filetype(url: str, content_type: str = "") -> tuple[str, str]:
@@ -859,7 +947,7 @@ def api_resource_search():
     if not all_organic:
         return jsonify({"error": "Serper 返回空结果（可能网络问题）"}), 502
 
-    # ===== 去盗版 + HEAD 探测 =====
+    # ===== 去盗版 + HEAD 探测 + 评分 =====
     results = []
     for r in all_organic:
         url = r.get("link", "")
@@ -871,7 +959,7 @@ def api_resource_search():
         domain_tag = _classify_domain(url)
         domain_raw = url.split("/")[2] if "://" in url else url[:30]
 
-        # HEAD 探类型（超时 3 秒，失败继续——用 URL 扩展名兜底）
+        # HEAD 探类型（超时 3 秒）
         ct = ""
         size_kb = None
         try:
@@ -882,30 +970,73 @@ def api_resource_search():
             if cl.isdigit():
                 size_kb = round(int(cl) / 1024, 1)
         except Exception:
-            pass  # 失败不丢弃，下面 _guess_filetype 会用 URL 扩展名兜底
+            pass
 
         ft_label, ft_cat = _guess_filetype(url, ct)
 
-        # 类型过滤（用户选了 PDF 就只留 doc）
-        if filetype_filter != "all" and filetype_filter != ft_cat:
+        # ===== 类型过滤（宽松版）=====
+        # "app" 类型：.exe/.apk/.dmg/.msi 直链 + GitHub Release + 官方下载页（web + URL 含 download/release/install）
+        # 其他类型：保持原来的严格匹配
+        matched = True
+        if filetype_filter != "all":
+            if filetype_filter == "app":
+                # 直链文件 OK
+                if ft_cat == "app":
+                    matched = True
+                elif ft_cat == "web":
+                    # 网页型结果，检查 URL/snippet 有没有下载相关信号
+                    url_low = url.lower()
+                    has_dl_kw = any(kw in url_low for kw in _DOWNLOAD_PATH_KEYWORDS)
+                    has_official = any(d in url_low for d in OFFICIAL_DOWNLOAD_DOMAINS)
+                    # snippet 里含 "下载" / "download" / "install" / "官方"
+                    sn_low = (r.get("snippet", "") or "").lower()
+                    sn_has = any(k in sn_low for k in ["download", "install", "setup", "official", "官方", "下载", "github"])
+                    matched = has_dl_kw or has_official or sn_has
+                else:
+                    matched = False
+            elif filetype_filter == "ebook":
+                if ft_cat == "ebook":
+                    matched = True
+                elif ft_cat == "web":
+                    sn_low = (r.get("snippet", "") or "").lower()
+                    url_low = url.lower()
+                    matched = any(d in url_low for d in ("gutenberg.org", "archive.org", "ebooks", "epub", "免费阅读", "电子书"))
+                else:
+                    matched = (ft_cat == "doc")  # 有时 EPUB 被 HEAD 探成 doc
+            else:
+                matched = (ft_cat == filetype_filter)
+
+        if not matched:
             continue
+
+        # 计算信誉分
+        score = _score_resource(url, ct, size_kb, domain_tag)
+
+        # 超小"假文件"拦截（< 3KB 且 Content-Type 不是 text/html —— 99% 是假 APK/EXE）
+        if size_kb is not None and size_kb > 0 and size_kb < 3 and ft_cat in ("app", "audio", "video"):
+            continue  # 直接丢掉 7KB 的"豆包 APK"
 
         results.append({
             "title": title,
             "snippet": snippet,
             "domain": domain_raw,
-            "domain_tag": domain_tag,       # 🐙 GitHub / ▶️ B站 等
+            "domain_tag": domain_tag,
             "link": url,
-            "filetype_label": ft_label,     # 📄 PDF / 🔗 网页
-            "filetype_cat": ft_cat,         # doc / web
+            "filetype_label": ft_label,
+            "filetype_cat": ft_cat,
             "size_kb": size_kb,
+            "score": round(score, 1),         # 信誉分 0~100
+            "suspicious": score < 40,          # 低质量标记（前端可以灰化）
         })
 
-        if len(results) >= max_results:
+        if len(results) >= max_results * 2:  # 先多攒点，按分数排序后截取
             break
 
-    # 排序：有直链文件的放前面（非 web 类型优先）
-    results.sort(key=lambda x: (x["filetype_cat"] == "web", x.get("size_kb") is None))
+    # 按信誉分从高到低排序
+    results.sort(key=lambda x: x["score"], reverse=True)
+
+    # 截到 max
+    results = results[:max_results]
 
     return jsonify({
         "query": query,
