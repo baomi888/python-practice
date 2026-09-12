@@ -137,34 +137,40 @@ def do_web_search(query: str, num_results: int = 5) -> list:
         for i, r in enumerate(results, 1)
     ]
 
-    # --- 阶段 2：Playwright 正文抓取（可选增强） ---
+    # --- 阶段 2：Playwright 正文抓取（可选增强，并发！） ---
     if _PLAYWRIGHT_AVAILABLE:
-        # 国内网络黑名单：直连慢 / 需要翻墙的域名，跳过省时间
         BLOCKED_HOSTS = (
             "wikipedia.org", "wikimedia.org", "nobelprize.org",
             "nature.com", "science.org", "newsweek.com",
             "nytimes.com", "bbc.com", "bbc.co.uk",
             "theguardian.com", "reuters.com",
         )
-        print(f"🔍 Playwright 正文抓取（共 {len(sources)} 条）...")
+        import concurrent.futures
+        print(f"🔍 Playwright 正文抓取（{len(sources)} 条 × 并发 3）...")
         t0 = time.time()
-        for s in sources:
-            # 总时间保护：45 秒到就停
-            if time.time() - t0 > 45:
-                print("  ⏱ 总时间到，停止后续抓取")
-                break
-            link = s["link"]
-            if any(bh in link for bh in BLOCKED_HOSTS):
-                print(f"  ⏭ [{s['source_id']}] {s['title'][:40]} → 黑名单域名跳过")
-                continue
-            content = fetch_url_text(link, timeout=12)  # 单 URL 超时 12s
-            if content and len(content) > 50:  # 太短 = 没抓到有效内容
-                s["content"] = content
-                s["snippet"] = content[:300] + "..."
-                print(f"  ✅ [{s['source_id']}] {s['title'][:40]} → {len(content)} chars")
-            else:
-                print(f"  ⏭ [{s['source_id']}] {s['title'][:40]} → 仅保留 Serper snippet")
-        print(f"  总耗时 {time.time() - t0:.1f}s")
+
+        # 先准备好要抓的列表（跳过黑名单）
+        to_fetch = [(i, s) for i, s in enumerate(sources)
+                    if not any(bh in s["link"] for bh in BLOCKED_HOSTS)]
+        blocked_count = len(sources) - len(to_fetch)
+
+        def _fetch_one(idx, s):
+            """抓一条，返回 (idx, content_or_None)"""
+            content = fetch_url_text(s["link"], timeout=12)
+            if content and len(content) > 50:
+                return (idx, content)
+            return (idx, None)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+            futures = {pool.submit(_fetch_one, i, s): i for i, s in to_fetch}
+            for fut in concurrent.futures.as_completed(futures):
+                idx, content = fut.result()
+                if content:
+                    sources[idx]["content"] = content
+                    sources[idx]["snippet"] = content[:300] + "..."
+
+        elapsed = time.time() - t0
+        print(f"  ✅ Playwright 完成：{sum(1 for s in sources if 'content' in s)}/{len(sources)} 条有正文，耗时 {elapsed:.1f}s（跳过黑名单 {blocked_count}）")
 
     return sources
 
@@ -614,18 +620,21 @@ def _run_resource_search(query: str, max_results: int = 6) -> list:
                     seen.add(url)
                     all_organic.append(r)
 
-    # 去盗版 + 打分
-    results = []
+    # 去盗版过滤（便宜，串行）
+    candidates = []
     for r in all_organic:
         url = r.get("link", "")
         if not _is_legit_resource(url, r.get("snippet", "")):
             continue
+        candidates.append(r)
 
+    # HEAD 探测 + 打分（并发！max_workers=8）
+    def _head_and_score(r):
+        url = r.get("link", "")
         title = r.get("title", "")
         snippet = r.get("snippet", "")[:200]
         domain_raw = url.split("/")[2] if "://" in url else ""
 
-        # HEAD 探类型
         ct = ""
         size_kb = None
         try:
@@ -641,11 +650,7 @@ def _run_resource_search(query: str, max_results: int = 6) -> list:
         ft_label, ft_cat = _guess_filetype(url, ct)
         score = _score_resource(url, ct, size_kb, "")
 
-        # 超小假文件拦截
-        if size_kb is not None and 0 < size_kb < 3 and ft_cat in ("app", "audio", "video"):
-            continue
-
-        results.append({
+        return {
             "title": title,
             "snippet": snippet,
             "domain": domain_raw,
@@ -654,8 +659,23 @@ def _run_resource_search(query: str, max_results: int = 6) -> list:
             "filetype_cat": ft_cat,
             "size_kb": size_kb,
             "score": round(score, 1),
-            "resource": True,   # 标记给前端渲染成资源卡片
-        })
+            "resource": True,
+        }
+
+    results = []
+    if candidates:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            futures = [pool.submit(_head_and_score, r) for r in candidates]
+            for fut in concurrent.futures.as_completed(futures):
+                try:
+                    item = fut.result()
+                    # 超小假文件拦截
+                    if (item["size_kb"] is not None and 0 < item["size_kb"] < 3
+                            and item["filetype_cat"] in ("app", "audio", "video")):
+                        continue
+                    results.append(item)
+                except Exception:
+                    pass
 
     # 信誉分排序
     results.sort(key=lambda x: x["score"], reverse=True)
@@ -1256,19 +1276,21 @@ def api_resource_search():
     if not all_organic:
         return jsonify({"error": "Serper 返回空结果（可能网络问题）"}), 502
 
-    # ===== 去盗版 + HEAD 探测 + 评分 =====
-    results = []
+    # ===== 去盗版 + HEAD 探测 + 评分（HEAD 并发 8）=====
+    candidates = []
     for r in all_organic:
         url = r.get("link", "")
         if not _is_legit_resource(url, r.get("snippet", "")):
             continue
+        candidates.append(r)
 
+    def _head_process_one(r):
+        url = r.get("link", "")
         title = r.get("title", "")
         snippet = r.get("snippet", "")[:200]
         domain_tag = _classify_domain(url)
         domain_raw = url.split("/")[2] if "://" in url else url[:30]
 
-        # HEAD 探类型（超时 3 秒）
         ct = ""
         size_kb = None
         try:
@@ -1283,21 +1305,15 @@ def api_resource_search():
 
         ft_label, ft_cat = _guess_filetype(url, ct)
 
-        # ===== 类型过滤（宽松版）=====
-        # "app" 类型：.exe/.apk/.dmg/.msi 直链 + GitHub Release + 官方下载页（web + URL 含 download/release/install）
-        # 其他类型：保持原来的严格匹配
         matched = True
         if filetype_filter != "all":
             if filetype_filter == "app":
-                # 直链文件 OK
                 if ft_cat == "app":
                     matched = True
                 elif ft_cat == "web":
-                    # 网页型结果，检查 URL/snippet 有没有下载相关信号
                     url_low = url.lower()
                     has_dl_kw = any(kw in url_low for kw in _DOWNLOAD_PATH_KEYWORDS)
                     has_official = any(d in url_low for d in OFFICIAL_DOWNLOAD_DOMAINS)
-                    # snippet 里含 "下载" / "download" / "install" / "官方"
                     sn_low = (r.get("snippet", "") or "").lower()
                     sn_has = any(k in sn_low for k in ["download", "install", "setup", "official", "官方", "下载", "github"])
                     matched = has_dl_kw or has_official or sn_has
@@ -1311,21 +1327,20 @@ def api_resource_search():
                     url_low = url.lower()
                     matched = any(d in url_low for d in ("gutenberg.org", "archive.org", "ebooks", "epub", "免费阅读", "电子书"))
                 else:
-                    matched = (ft_cat == "doc")  # 有时 EPUB 被 HEAD 探成 doc
+                    matched = (ft_cat == "doc")
             else:
                 matched = (ft_cat == filetype_filter)
 
         if not matched:
-            continue
+            return None
 
-        # 计算信誉分
-        score = _score_resource(url, ct, size_kb, domain_tag)
-
-        # 超小"假文件"拦截（< 3KB 且 Content-Type 不是 text/html —— 99% 是假 APK/EXE）
         if size_kb is not None and size_kb > 0 and size_kb < 3 and ft_cat in ("app", "audio", "video"):
-            continue  # 直接丢掉 7KB 的"豆包 APK"
+            return None
 
-        results.append({
+        score = _score_resource(url, ct, size_kb, domain_tag)
+        suspicious = score < 40
+
+        return {
             "title": title,
             "snippet": snippet,
             "domain": domain_raw,
@@ -1334,14 +1349,23 @@ def api_resource_search():
             "filetype_label": ft_label,
             "filetype_cat": ft_cat,
             "size_kb": size_kb,
-            "score": round(score, 1),         # 信誉分 0~100
-            "suspicious": score < 40,          # 低质量标记（前端可以灰化）
-        })
+            "score": round(score, 1),
+            "suspicious": suspicious,
+        }
 
-        if len(results) >= max_results * 2:  # 先多攒点，按分数排序后截取
-            break
+    results = []
+    if candidates:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            futures = [pool.submit(_head_process_one, r) for r in candidates]
+            for fut in concurrent.futures.as_completed(futures):
+                try:
+                    item = fut.result()
+                    if item is not None:
+                        results.append(item)
+                except Exception:
+                    pass
 
-    # 按信誉分从高到低排序
+    # 信誉分从高到低
     results.sort(key=lambda x: x["score"], reverse=True)
 
     # 截到 max
